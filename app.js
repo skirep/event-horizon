@@ -42,7 +42,7 @@ ship(-4,-1,3,1.4);ship(-1,-2,5,.9);ship(6,-.3,2,.85);ship(3,3,1,.7);
 const planet=sphere(neb,'#333c73',-15,5,-22,5);torus(neb,'#5d7daa',5.4,.035,-15,5,-22);
 updates.push((t,dt,energy)=>{disk.rotation.y=t*.08*(1+energy*2);halo.rotation.z=t*.03;halo2.scale.setScalar(1+Math.sin(t)*.008);ships.forEach((s,i)=>{s.position.y+=Math.sin(t*1.2+i)*dt*.3;s.rotation.z=Math.sin(t*.7+i)*.15;s.children.filter(m=>m.material?.emissiveIntensity===3).forEach(m=>m.scale.y=1+energy*2+Math.sin(t*20)*.15);});planet.rotation.y=t*.05;});
 // MAZEVERSE — floating labyrinth, a luminous route, trees and collectible orbs.
-const maze=world(),island=new T.Group();maze.add(island);island.rotation.y=-.55;island.position.y=-2;
+const maze=world(),island=new T.Group();maze.add(island);island.rotation.y=-.55;maze.rotation.x=.4;island.position.y=-2;
 const base=mesh(new T.CylinderGeometry(8.4,4,2.6,6),'#1c2e37',island,0,-1.4,0);
 const floor=box(island,'#294c45',0,0,0,13,.3,13);
 const grid=13, seen=Array.from({length:grid},()=>Array(grid).fill(false)),cells=Array.from({length:grid},()=>Array(grid).fill(true));
@@ -57,7 +57,7 @@ for(let i=0;i<11;i++){let a=i/11*Math.PI*2;const tr=new T.Group();tr.position.se
 const mazeRing=torus(maze,'#65cfba',10,.025,0,-2,0);mazeRing.rotation.x=Math.PI/2;
 updates.push((t,dt,e)=>{island.position.y=-2+Math.sin(t*.5)*.25;const f=(t*.8)%route.length,a=Math.floor(f),b=(a+1)%route.length;traveler.position.lerpVectors(route[a],route[b],f-a);traveler.position.y=.6+Math.sin(t*4)*.1;orbs.forEach((o,i)=>{o.position.y=.8+Math.sin(t*2+i)*.2;o.scale.setScalar(1+e*.8);});});
 // CABRILS SOMIAT — deliberately fictional, Mediterranean memory rather than a geographic map.
-const village=world(),town=new T.Group();village.add(town);town.position.y=-3;town.rotation.y=-.42;
+const village=world(),town=new T.Group();village.add(town);town.position.y=-3;town.rotation.y=-.42;village.rotation.x=.25;
 mesh(new T.CylinderGeometry(10,6,2,64),'#435b52',town,0,-1.1,0);
 box(town,'#b9ab8a',0,.05,0,13,.15,12);
 const houses=[];
