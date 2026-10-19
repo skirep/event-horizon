@@ -15,7 +15,7 @@ const ambient=new T.HemisphereLight('#d6f0ed','#675647',2.0);scene.add(ambient);
 const sunlight=new T.DirectionalLight('#ffe0b1',3.6);sunlight.position.set(30,45,18);sunlight.castShadow=true;sunlight.shadow.mapSize.set(1024,1024);Object.assign(sunlight.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:130});sunlight.shadow.bias=-.0008;scene.add(sunlight);
 const fill=new T.PointLight('#a4e8e2',25,40);fill.position.set(0,4,-2);scene.add(fill);
 const atmosphere=sky(scene),ship=cockpit();ship.visible=false;rig.add(ship);
-const heldKey=new T.Group();heldKey.position.set(.45,1.15,-.8);heldKey.scale.setScalar(.14);rig.add(heldKey);
+const heldKey=new T.Group();heldKey.position.set(.37,1.35,-1);heldKey.scale.setScalar(.14);rig.add(heldKey);
 const artifact=sphere(heldKey,'#eac78e',0,0,0,1,1.2),artifactRing=ring(heldKey,'#d7f5db',0,0,0,1.4,.06);heldKey.visible=false;
 const routeLine=new T.Line(new T.BufferGeometry(),new T.LineBasicMaterial({color:'#a2f7d0',transparent:true,opacity:.85}));scene.add(routeLine);routeLine.visible=false;
 const bursts=[],beams=[],raycaster=new T.Raycaster(),pointer=new T.Vector2(),tmp=new T.Vector3();
@@ -32,7 +32,7 @@ function enterWorld(stage){
  if(stage==='home'){rig.position.set(0,0,8);world.portal.active=false;}else rig.position.copy(world.spawn);
  camera.position.set(0,1.7,0);rig.rotation.set(0,0,0);targetYaw=yaw=world.yaw||0;targetPitch=pitch=0;
  if(stage==='flight'){ship.visible=true;flightZ=0;positionGate(game.gates);$('#flight-status').hidden=false;$('.map-wrap').hidden=true;}else{ship.visible=false;$('#flight-status').hidden=true;$('.map-wrap').hidden=false;}
- autoPath=[];actionTime=0;routeLine.visible=false;heldKey.visible=game.key&&stage!=='flight';if(game.core){artifact.material.color.set('#8eebe6');artifact.material.emissive.set('#8eebe6');}heldKey.position.set(.45,1.15,-.8);
+ autoPath=[];actionTime=0;routeLine.visible=false;heldKey.visible=game.key&&stage!=='flight';if(game.core){artifact.material.color.set('#8eebe6');artifact.material.emissive.set('#8eebe6');}heldKey.position.set(.37,1.35,-1);
  ambient.intensity=stage==='village'?.9:stage==='maze'?1.25:stage==='home'?.8:1.2;sunlight.intensity=stage==='village'?3.6:stage==='home'?1.2:stage==='maze'?1.6:.6;
  sunlight.color.set(stage==='village'?'#ffe0b1':stage==='maze'?'#b9e6d0':'#aac6ee');
  renderer.shadowMap.needsUpdate=true;updateProgress();updateVrHud();rebuildAssist();save();
@@ -206,7 +206,7 @@ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();save();$('#gra
 $('#retry').onclick=()=>location.reload();
 enterWorld('village');rig.position.set(-13,11,28);camera.position.set(0,0,0);camera.lookAt(0,1,-5);
 renderer.setAnimationLoop(ms=>{
- if(document.hidden)return;const rawDt=previous?(ms-previous)/1000:0,dt=Math.min(rawDt,.1);previous=ms;if(rawDt>.05&&!renderer.xr.isPresenting)slowFrames++;else slowFrames=Math.max(0,slowFrames-1);if(slowFrames>35&&qualityLevel<2){qualityLevel++;renderer.setPixelRatio(qualityLevel===1?.8:.6);renderer.setSize(innerWidth,innerHeight);slowFrames=0;}
+ if(document.hidden)return;const rawDt=previous?(ms-previous)/1000:0,dt=Math.min(rawDt,.25);previous=ms;if(rawDt>.05&&!renderer.xr.isPresenting)slowFrames++;else slowFrames=Math.max(0,slowFrames-1);if(slowFrames>35&&qualityLevel<2){qualityLevel++;renderer.setPixelRatio(qualityLevel===1?.8:.6);renderer.setSize(innerWidth,innerHeight);slowFrames=0;}
  if(!paused&&!busy)time+=dt;if(playing&&!paused&&!busy&&!finish)game.elapsed+=dt;
  const pulse=score.pulse;atmosphere.update(time,activeStage);atmosphere.group.position.x=rig.position.x;atmosphere.group.position.z=rig.position.z;
  if(!playing){rig.position.x=-13+(reducedMotion?0:Math.sin(time*.09)*1.5);camera.lookAt(0,1,-5);}

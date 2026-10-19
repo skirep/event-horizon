@@ -18,7 +18,7 @@ export function glow(p,c,x,y,z,size=2){glowMap||=glowTexture();const s=new T.Spr
 function interaction(w,id,node,labelText,kind='tap'){const item={id,node,kind,label:labelText,position:node.position,hit:node,charged:0};w.interactables.push(item);return item;}
 function env(){return {group:new T.Group(),interactables:[],colliders:[],animated:[],spawn:new T.Vector3(0,0,12),yaw:0,background:'#8096a0',fog:.012};}
 function collider(w,x,z,sx,sz){w.colliders.push({x,z,hx:sx/2,hz:sz/2});}
-function tree(g,x,z,scale=1,color='#3a705a'){const t=new T.Group();t.position.set(x,0,z);t.scale.setScalar(scale);g.add(t);cylinder(t,'#766655',0,1.3,0,.15,.22,2.6,6);for(let i=0;i<3;i++){const o=mesh(t,geo('leaf',()=>new T.IcosahedronGeometry(1,1)),color,(i-1)*.45,2.5+rand()*.8,(i%2-.5)*.5);o.scale.set(.9,1.2,.9);}return t;}
+function tree(g,x,z,scale=1,color='#3a705a'){const t=new T.Group();t.userData.tree=true;t.position.set(x,0,z);t.scale.setScalar(scale);g.add(t);cylinder(t,'#766655',0,1.3,0,.15,.22,2.6,6);for(let i=0;i<3;i++){const o=mesh(t,geo('leaf',()=>new T.IcosahedronGeometry(1,1)),color,(i-1)*.45,2.5+rand()*.8,(i%2-.5)*.5);o.scale.set(.9,1.2,.9);}return t;}
 function roof(g,x,y,z,w,d,h=1.1){const shape=new T.Shape();shape.moveTo(-w/2,0);shape.lineTo(0,h);shape.lineTo(w/2,0);shape.closePath();const r=mesh(g,new T.ExtrudeGeometry(shape,{depth:d,bevelEnabled:false}),'#9e5846',x,y,z-d/2);for(let i=0;i<Math.ceil(d/.27);i++){box(g,'#ad6c54',x,y+h+.025,z-d/2+i*.27,.13,.09,.17);}return r;}
 function house(w,x,z,sx,sz,h,c){const p=new T.Group();p.position.set(x,0,z);w.group.add(p);box(p,c,0,h/2,0,sx,h,sz);roof(p,0,h,0,sx+.35,sz+.35);box(p,'#e4d5b2',0,.18,sz/2+.03,sx,.35,.08);for(let row=0;row<2;row++)for(let i=-1;i<=1;i+=2){box(p,'#4b695d',i*sx*.27,1.5+row*1.35,sz/2+.07,.68,.95,.1);box(p,'#e9c894',i*sx*.27,1.5+row*1.35,sz/2+.13,.4,.7,.02,.55);box(p,'#d7c7a2',i*sx*.27,1.0+row*1.35,sz/2+.18,.85,.08,.28);}box(p,'#4e594c',0,.85,sz/2+.07,.85,1.7,.12);collider(w,x,z,sx+.5,sz+.5);return p;}
 function clockFace(g,x,y,z,r=1){const face=cylinder(g,'#f4dec2',x,y,z,r,r,.1,48);face.rotation.x=Math.PI/2;for(let j=0;j<12;j++){const a=j/12*Math.PI*2;const tick=box(g,'#475d64',x+Math.sin(a)*r*.8,y+Math.cos(a)*r*.8,z+.07,.04,.14,.035);tick.rotation.z=-a;}const hand1=box(g,'#45606a',x,y+.25*r,z+.12,.045,.5*r,.04);const hand2=box(g,'#45606a',x+.25*r,y,z+.14,.5*r,.035,.04);sphere(g,'#e8b466',x,y,z+.16,.065,.4);return [hand1,hand2];}
@@ -68,18 +68,25 @@ export function village(){
 export function forest(game){
  const w=env();const sp=toWorld(1,1);w.spawn.copy(sp);w.yaw=-Math.PI/2;w.background='#173b40';w.fog=.026;
  cylinder(w.group,'#354d42',0,-.6,0,45,50,1.2,80);
- const walls=[];for(let z=0;z<11;z++)for(let x=0;x<11;x++){const p=toWorld(x,z);if(game.maze[z][x])walls.push(p);else{const tile=box(w.group,'#748b75',p.x,.02,p.z,TILE-.1,.1,TILE-.1);}}
+ const walls=[],paths=[];for(let z=0;z<11;z++)for(let x=0;x<11;x++){const p=toWorld(x,z);if(game.maze[z][x])walls.push(p);else{paths.push(p);}}
  const im=new T.InstancedMesh(new T.BoxGeometry(TILE-.08,2.55,TILE-.08),material('#4b7468'),walls.length),dummy=new T.Object3D();
  walls.forEach((p,i)=>{dummy.position.set(p.x,1.27,p.z);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);collider(w,p.x,p.z,TILE-.08,TILE-.08);});w.group.add(im);
+ const floorInstances=new T.InstancedMesh(new T.BoxGeometry(TILE-.1,.1,TILE-.1),material('#748b75'),paths.length);paths.forEach((p,i)=>{dummy.position.set(p.x,.02,p.z);dummy.updateMatrix();floorInstances.setMatrixAt(i,dummy.matrix);});w.group.add(floorInstances);
+
  // Large silhouettes beyond the maze give depth without hiding navigation.
  for(let i=0;i<55;i++){const a=rand()*Math.PI*2,r=21+rand()*18;tree(w.group,Math.cos(a)*r,Math.sin(a)*r,1.7+rand()*1.8,['#356c60','#4d8171','#2b5f56'][i%3]);}
- const motes=[],moteColors=[];for(let i=0;i<300;i++){motes.push((rand()-.5)*65,.5+rand()*12,(rand()-.5)*65);const c=new T.Color(i%3===0?'#ffe4ad':'#90dac4');moteColors.push(c.r,c.g,c.b);}
+ // Static tree silhouettes are batched into four draws rather than hundreds.
+ const trees=w.group.children.filter(o=>o.userData.tree),batches=new Map();w.group.updateMatrixWorld(true);
+ for(const t of trees){t.traverse(o=>{if(o.isMesh){const key=o.geometry.uuid+o.material.uuid;if(!batches.has(key))batches.set(key,{geometry:o.geometry,material:o.material,matrices:[]});batches.get(key).matrices.push(o.matrixWorld.clone());}});t.visible=false;}
+ for(const b of batches.values()){const instances=new T.InstancedMesh(b.geometry,b.material,b.matrices.length);b.matrices.forEach((m,i)=>instances.setMatrixAt(i,m));w.group.add(instances);}
+ const motes=[],moteColors=[];
+for(let i=0;i<300;i++){motes.push((rand()-.5)*65,.5+rand()*12,(rand()-.5)*65);const c=new T.Color(i%3===0?'#ffe4ad':'#90dac4');moteColors.push(c.r,c.g,c.b);}
  const mg=new T.BufferGeometry();mg.setAttribute('position',new T.Float32BufferAttribute(motes,3));mg.setAttribute('color',new T.Float32BufferAttribute(moteColors,3));const fireflies=new T.Points(mg,new T.PointsMaterial({size:.07,vertexColors:true,transparent:true,opacity:.8,blending:T.AdditiveBlending,depthWrite:false}));w.group.add(fireflies);
  w.relays=[];
  game.relayCells.forEach(([x,z],i)=>{const p=toWorld(x,z),g=new T.Group();g.position.copy(p);w.group.add(g);cylinder(g,'#8a9c7c',0,.3,0,.65,.95,.6,8);
  const crystal=mesh(g,new T.OctahedronGeometry(.42),'#e7c68a',0,1.5,0,1),halo=ring(g,'#eac58a',0,1.5,0,.75,.025);const gl=glow(g,'#f9d79f',0,1.5,0,3.2);
  const l=label('FIL '+['I','II','III'][i],'#e4d1a4',2.3);l.position.y=2.65;g.add(l);
- const item=interaction(w,'relay'+i,g,'MANTÉN ACCIÓ · FIL '+(i+1),'hold');item.crystal=crystal;item.glow=gl;item.cell=[x,z];w.relays.push(item);
+ crystal.material=crystal.material.clone();const item=interaction(w,'relay'+i,g,'MANTÉN ACCIÓ · FIL '+(i+1),'hold');item.crystal=crystal;item.glow=gl;item.cell=[x,z];w.relays.push(item);
  w.animated.push((t,p)=>{crystal.rotation.y=t*.55;crystal.position.y=1.5+Math.sin(t*1.6+i)*.16;halo.rotation.y=t*.4;gl.material.opacity=game.relays.includes(i)?.6:.3+p*.25;crystal.material.emissiveIntensity=game.relays.includes(i)?1.8:.3+p*.5;});});
  const cp=toWorld(9,9),coreGroup=new T.Group();coreGroup.position.copy(cp);w.group.add(coreGroup);cylinder(coreGroup,'#849682',0,.15,0,1.1,1.3,.3,8);
  const coreMesh=mesh(coreGroup,new T.IcosahedronGeometry(.45,1),'#95eff0',0,1.5,0,2),coreHalo=ring(coreGroup,'#b2efdd',0,1.5,0,.8,.02),coreLight=glow(coreGroup,'#9be4ec',0,1.5,0,4);
