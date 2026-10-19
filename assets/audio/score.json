@@ -1,0 +1,30 @@
+[
+  {
+    "file": "cue-0.mp3",
+    "bpm": 90,
+    "bars": 24,
+    "title": "La plaça sense segon",
+    "duration": 67.0
+  },
+  {
+    "file": "cue-1.mp3",
+    "bpm": 100,
+    "bars": 24,
+    "title": "Els fils del bosc",
+    "duration": 60.6
+  },
+  {
+    "file": "cue-2.mp3",
+    "bpm": 120,
+    "bars": 32,
+    "title": "Vector de retorn",
+    "duration": 67.0
+  },
+  {
+    "file": "cue-3.mp3",
+    "bpm": 80,
+    "bars": 16,
+    "title": "Un segon sencer",
+    "duration": 51.0
+  }
+]

@@ -1,0 +1,11 @@
+EL SEGON QUE FALTA — Original score (2026)
+1. La plaça sense segon — piano, flute, strings and clock-like celesta. 90 BPM.
+2. Els fils del bosc — clarinet, harp, pizzicato, low strings and choir. 100 BPM.
+3. Vector de retorn — original theme developed for horn, strings and percussion. 120 BPM.
+4. Un segon sencer — theme in a lower register, piano and strings. 80 BPM.
+
+Original composition and orchestration created for this project.
+No third-party melodies or recordings were imported.
+Rendered with FluidSynth and TimGM6mb (Tim Brechbill, David Bolton).
+The soundfont and synthesis runtime are not distributed here. TimGM6mb's licensing/attribution is reproduced in TIMGM-NOTICE.txt.
+The render source is tools/compose_score.py.

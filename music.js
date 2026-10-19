@@ -1,26 +1,43 @@
-// Original score: "Four memories / One horizon". Oriol's multiverse, 2026.
-// Four original 16-bar arrangements, 112 BPM. All instruments synthesized locally.
-export class Score {
- constructor(){this.ctx=null;this.on=false;this.world=0;this.pending=0;this.step=0;this.next=0;this.epoch=0;this.timer=null;this.bpm=112;}
- async init(){if(this.ctx)return;this.ctx=new (window.AudioContext||window.webkitAudioContext)();this.bus=this.graph(this.ctx);this.bus.master.gain.value=0;this.epoch=this.ctx.currentTime+.08;this.next=this.epoch;this.timer=setInterval(()=>this.schedule(),30);}
- graph(ctx){const master=ctx.createGain(),comp=ctx.createDynamicsCompressor();comp.threshold.value=-18;comp.knee.value=18;comp.ratio.value=4;master.gain.value=.65;master.connect(comp);comp.connect(ctx.destination);const reverb=ctx.createConvolver(),wet=ctx.createGain();wet.gain.value=.19;const buffer=ctx.createBuffer(2,ctx.sampleRate*2.1,ctx.sampleRate);let rng=137;for(let ch=0;ch<2;ch++){const d=buffer.getChannelData(ch);for(let i=0;i<d.length;i++){rng=(rng*16807)%2147483647;d[i]=(rng/1073741824-1)*Math.pow(1-i/d.length,3);}}reverb.buffer=buffer;reverb.connect(wet);wet.connect(master);const delay=ctx.createDelay(1),feedback=ctx.createGain(),delayWet=ctx.createGain();delay.delayTime.value=60/112*.75;feedback.gain.value=.28;delayWet.gain.value=.16;delay.connect(feedback);feedback.connect(delay);delay.connect(delayWet);delayWet.connect(master);return {master,reverb,delay};}
- note(ctx,bus,midi,t,dur,type='sine',gain=.12,pan=0){const osc=ctx.createOscillator(),env=ctx.createGain(),filter=ctx.createBiquadFilter(),stereo=ctx.createStereoPanner();osc.type=type;osc.frequency.value=440*Math.pow(2,(midi-69)/12);filter.type='lowpass';filter.frequency.value=type==='sawtooth'?1100:5000;stereo.pan.value=pan;env.gain.setValueAtTime(.0001,t);env.gain.exponentialRampToValueAtTime(gain,t+.025);env.gain.exponentialRampToValueAtTime(gain*.48,t+Math.min(.15,dur*.4));env.gain.exponentialRampToValueAtTime(.0001,t+dur);osc.connect(filter);filter.connect(env);env.connect(stereo);stereo.connect(bus.master);stereo.connect(bus.reverb);if(midi>60)stereo.connect(bus.delay);osc.start(t);osc.stop(t+dur+.02);}
- drum(ctx,bus,t,kind,level=1){const env=ctx.createGain();env.connect(bus.master);if(kind==='kick'){const osc=ctx.createOscillator();osc.frequency.setValueAtTime(135,t);osc.frequency.exponentialRampToValueAtTime(42,t+.16);env.gain.setValueAtTime(.45*level,t);env.gain.exponentialRampToValueAtTime(.0001,t+.34);osc.connect(env);osc.start(t);osc.stop(t+.35);}else{const len=kind==='hat'?.08:.2,b=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*len),ctx.sampleRate),data=b.getChannelData(0);let seed=17;for(let i=0;i<data.length;i++){seed=(seed*16807)%2147483647;data[i]=seed/1073741824-1;}const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter();src.buffer=b;filter.type='highpass';filter.frequency.value=kind==='hat'?7000:1500;env.gain.setValueAtTime((kind==='hat'?.045:.13)*level,t);env.gain.exponentialRampToValueAtTime(.0001,t+len);src.connect(filter);filter.connect(env);src.start(t);}}
- renderStep(ctx,bus,step,t,w){const beat=60/this.bpm,s=step%16,bar=Math.floor(step/16)%16,chord=[0,8,3,10][Math.floor(bar/2)%4],root=[45,48,50,45][w]+chord;const gentle=w===2?.6:1;
- if(s===0){for(const offset of [0,7,12,15])this.note(ctx,bus,root+offset+12,t,beat*3.9,'triangle',.024,offset%2?-.4:.4);}
- if(s%4===0)this.note(ctx,bus,root+(s===8?7:0)-12,t,beat*.8,'triangle',.18*gentle);
- if(s===0||s===8||(w===3&&s===10))this.drum(ctx,bus,t,'kick',gentle);
- if(s===4||s===12)this.drum(ctx,bus,t,'snare',gentle*.8);
- if(s%2===0)this.drum(ctx,bus,t,'hat',s%4===0?.6:.9);
- const arp=[0,7,12,15,19,15,12,7],ar=arp[(step/2|0)%8];if(s%2===0)this.note(ctx,bus,root+24+ar,t,beat*.65,w===0?'sine':'triangle',.045,Math.sin(step)*.5);
- // Authored call-and-response motif, transposed by the harmonic progression.
- const motif=[12,null,19,15,14,null,10,7,12,15,22,null,19,15,14,7];
- if(step%4===0){const m=motif[Math.floor(step/4)%16];if(m!==null)this.note(ctx,bus,root+12+m,t,beat*(bar%4===3?1.5:.85),'sine',.10,0);}
- if(w===3&&s%4===2)this.note(ctx,bus,root+19,t,beat*.24,'sawtooth',.035,-.3);
+const CUES=[
+ {file:'cue-0.mp3',bpm:90,bars:24,title:'La plaça sense segon'},
+ {file:'cue-1.mp3',bpm:100,bars:24,title:'Els fils del bosc'},
+ {file:'cue-2.mp3',bpm:120,bars:32,title:'Vector de retorn'},
+ {file:'cue-3.mp3',bpm:80,bars:16,title:'Un segon sencer'}
+];
+/** Sample-rendered original soundtrack. AudioContext is the sole beat clock. */
+export class Soundtrack{
+ constructor(){this.ctx=null;this.master=null;this.buffers=new Map();this.loading=new Map();this.cue=0;this.epoch=0;this.pending=null;this.playing=null;this.volume=.75;this.muted=false;this.ready=false;}
+ async prepare(index=0){
+  if(!this.ctx){this.ctx=new (window.AudioContext||window.webkitAudioContext)();this.master=this.ctx.createGain();this.master.gain.value=this.volume;const compressor=this.ctx.createDynamicsCompressor();compressor.threshold.value=-8;compressor.ratio.value=3;this.master.connect(compressor);compressor.connect(this.ctx.destination);await this.ctx.resume();}
+  if(this.buffers.has(index))return this.buffers.get(index);
+  if(!this.loading.has(index)){const promise=fetch('./assets/audio/'+CUES[index].file).then(r=>{if(!r.ok)throw Error('BSO '+r.status);return r.arrayBuffer();}).then(b=>this.ctx.decodeAudioData(b)).then(buffer=>{this.buffers.set(index,buffer);return buffer;}).catch(e=>{this.loading.delete(index);throw e;});this.loading.set(index,promise);}
+  return this.loading.get(index);
  }
- schedule(){if(!this.on)return;while(this.next<this.ctx.currentTime+.15){if(this.step%16===0)this.world=this.pending;this.renderStep(this.ctx,this.bus,this.step,this.next,this.world);this.step++;this.next+=60/this.bpm/4;}}
- async toggle(){await this.init();await this.ctx.resume();this.on=!this.on;if(this.on){this.epoch=this.ctx.currentTime+.08;this.next=this.epoch;this.step=0;this.world=this.pending;}this.bus.master.gain.setTargetAtTime(this.on?.65:0,this.ctx.currentTime,.18);return this.on;}
- setWorld(w){this.pending=w;}
- get beat(){return this.on&&this.ctx?.state==='running'?Math.max(0,(this.ctx.currentTime-this.epoch)*this.bpm/60):null;}
- async export(w){const duration=16*4*60/this.bpm,ctx=new OfflineAudioContext(2,Math.ceil((duration+2.5)*44100),44100),bus=this.graph(ctx);for(let step=0;step<256;step++)this.renderStep(ctx,bus,step,step*60/this.bpm/4,w);bus.master.gain.setValueAtTime(.65,duration-1);bus.master.gain.linearRampToValueAtTime(0,duration+2.2);const rendered=await ctx.startRendering(),frames=rendered.length,buffer=new ArrayBuffer(44+frames*4),dv=new DataView(buffer);const str=(o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};str(0,'RIFF');dv.setUint32(4,36+frames*4,true);str(8,'WAVE');str(12,'fmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,2,true);dv.setUint32(24,44100,true);dv.setUint32(28,176400,true);dv.setUint16(32,4,true);dv.setUint16(34,16,true);str(36,'data');dv.setUint32(40,frames*4,true);const channels=[rendered.getChannelData(0),rendered.getChannelData(1)];for(let i=0;i<frames;i++)for(let c=0;c<2;c++){const v=Math.max(-1,Math.min(1,channels[c][i]));dv.setInt16(44+(i*2+c)*2,v<0?v*32768:v*32767,true);}return new Blob([buffer],{type:'audio/wav'});}
+ async start(index=0){await this.prepare(index);await this.ctx.resume();this.change(index,this.ctx.currentTime+.08,true);this.ready=true;for(let i=0;i<4;i++)if(i!==index)this.prepare(i).catch(()=>{});}
+ nextBar(){if(!this.ctx||!this.playing)return 0;const {index,epoch}=this.active();const bar=240/CUES[index].bpm;return epoch+(Math.floor((this.ctx.currentTime-epoch)/bar)+1)*bar;}
+ active(){if(this.pending&&this.ctx.currentTime>=this.pending.epoch){this.cue=this.pending.index;this.epoch=this.pending.epoch;this.pending=null;}return this.pending&&this.ctx.currentTime<this.pending.epoch?{index:this.cue,epoch:this.epoch}:{index:this.cue,epoch:this.epoch};}
+ change(index,when,immediate=false){
+  if(!this.ctx||!this.buffers.has(index))return false;
+  const now=this.ctx.currentTime;when=Math.max(now+.04,when||now+.04);
+  const source=this.ctx.createBufferSource(),gain=this.ctx.createGain();source.buffer=this.buffers.get(index);source.loop=true;source.loopEnd=CUES[index].bars*240/CUES[index].bpm;source.connect(gain);gain.connect(this.master);
+  gain.gain.setValueAtTime(immediate?.9:0,when);if(!immediate)gain.gain.linearRampToValueAtTime(.9,when+1.4);
+  if(this.playing){this.playing.gain.gain.cancelScheduledValues(when);this.playing.gain.gain.setValueAtTime(.9,when);this.playing.gain.gain.linearRampToValueAtTime(0,when+1.3);this.playing.source.stop(when+1.5);}
+  source.start(when);this.playing={source,gain,index};if(immediate){this.cue=index;this.epoch=when;}else this.pending={index,epoch:when};return true;
+ }
+ get beat(){if(!this.ctx||!this.playing)return null;const {index,epoch}=this.active();return Math.max(0,(this.ctx.currentTime-epoch)*CUES[index].bpm/60);}
+ get pulse(){const b=this.beat;return b===null?0:Math.exp(-(b%1)*8);}
+ setVolume(v){this.volume=v;if(this.master)this.master.gain.setTargetAtTime(this.muted?0:v,this.ctx.currentTime,.1);}
+ toggle(){this.muted=!this.muted;this.setVolume(this.volume);return !this.muted;}
+ async suspend(){if(this.ctx?.state==='running')await this.ctx.suspend();}
+ async resume(){if(this.ctx?.state==='suspended')await this.ctx.resume();}
+ tone(frequency,duration=.8,delay=0,volume=.13){
+  if(!this.ctx||this.ctx.state!=='running')return;
+  const t=this.ctx.currentTime+delay,osc=this.ctx.createOscillator(),env=this.ctx.createGain();osc.type='sine';osc.frequency.value=frequency;env.gain.setValueAtTime(.0001,t);env.gain.exponentialRampToValueAtTime(volume,t+.01);env.gain.exponentialRampToValueAtTime(.0001,t+duration);osc.connect(env);env.connect(this.master);osc.start(t);osc.stop(t+duration+.02);
+  const overtone=this.ctx.createOscillator(),g=this.ctx.createGain();overtone.frequency.value=frequency*2.76;g.gain.setValueAtTime(volume*.18,t);g.gain.exponentialRampToValueAtTime(.0001,t+duration*.6);overtone.connect(g);g.connect(this.master);overtone.start(t);overtone.stop(t+duration);
+ }
+ bell(id,correct){this.tone({sun:293.665,wave:349.228,moon:440}[id]||293.665,1.8,0,correct?.24:.13);}
+ reward(){[293.665,349.228,440,587.33].forEach((f,i)=>this.tone(f,1.2,i*.11,.14));}
+ shoot(){this.tone(150,.12,0,.09);this.tone(600,.08,.01,.05);}
+ hit(){this.tone(87.3,.25,0,.18);}
+ whoosh(){if(!this.ctx)return;const ctx=this.ctx,t=ctx.currentTime,n=ctx.sampleRate*2,b=ctx.createBuffer(1,n,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.sin(i/n*Math.PI);const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),g=ctx.createGain();src.buffer=b;filter.type='bandpass';filter.frequency.setValueAtTime(180,t);filter.frequency.exponentialRampToValueAtTime(2200,t+1.4);filter.Q.value=.6;g.gain.value=.18;src.connect(filter);filter.connect(g);g.connect(this.master);src.start(t);}
 }

@@ -2,11 +2,11 @@ plugins { id 'com.android.application' }
 android {
  namespace 'cat.skirep.eventhorizon'
  compileSdk 35
- defaultConfig { applicationId 'cat.skirep.eventhorizon'; minSdk 26; targetSdk 35; versionCode 1; versionName '1.0' }
+ defaultConfig { applicationId 'cat.skirep.eventhorizon'; minSdk 26; targetSdk 35; versionCode 2; versionName '2.0' }
  flavorDimensions 'device'
  productFlavors {
-  mobile { dimension 'device'; applicationIdSuffix '.mobile'; manifestPlaceholders = [appName:'Event Horizon'] }
-  quest { dimension 'device'; applicationIdSuffix '.quest'; manifestPlaceholders = [appName:'Event Horizon Quest'] }
+  mobile { dimension 'device'; applicationIdSuffix '.mobile'; manifestPlaceholders = [appName:'El segon que falta'] }
+  quest { dimension 'device'; applicationIdSuffix '.quest'; manifestPlaceholders = [appName:'El segon · Quest'] }
  }
  sourceSets { main { assets.srcDirs = ['src/main/assets'] } }
  buildFeatures { buildConfig true }

@@ -1,4 +1,4 @@
-name: Publish web and build Android + Quest
+name: Story QA, Pages, Android and Quest
 on:
   push:
     branches: [main]
@@ -11,19 +11,36 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
-  web:
-    runs-on: ubuntu-latest
+  qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check JavaScript syntax and package web
+      - run: npm install
+      - run: npm run check && npm test
+      - run: npx playwright install --with-deps chromium
+      - name: Play the adventure through the public controls
+        run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Adventure-Browser-QA
+          path: |
+            test-results/
+            playwright-report/
+  web:
+    needs: qa
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package offline web experience
         run: |
-          node --check app.js
-          node --check music.js
-          mkdir -p dist
-          cp index.html app.js music.js style.css three.module.js manifest.webmanifest sw.js dist/
+          mkdir -p dist/assets
+          cp index.html app.js music.js worlds.js journey.js style.css three.module.js manifest.webmanifest sw.js dist/
+          cp -r assets/audio dist/assets/
           touch dist/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
@@ -31,7 +48,7 @@ jobs:
           path: dist
   deploy:
     needs: web
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -40,7 +57,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
   android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -54,18 +71,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Package offline web assets
+      - name: Package assets including rendered original score
         run: |
-          mkdir -p android/app/src/main/assets
-          cp index.html app.js music.js style.css three.module.js manifest.webmanifest sw.js android/app/src/main/assets/
+          mkdir -p android/app/src/main/assets/assets
+          cp index.html app.js music.js worlds.js journey.js style.css three.module.js manifest.webmanifest sw.js android/app/src/main/assets/
+          cp -r assets/audio android/app/src/main/assets/assets/
       - name: Build mobile and Quest APKs
         working-directory: android
         run: gradle assembleMobileDebug assembleQuestDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: EventHorizon-Android-Mobile
+          name: ElSegon-Android-Mobile
           path: android/app/build/outputs/apk/mobile/debug/*.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: EventHorizon-MetaQuest
+          name: ElSegon-MetaQuest
           path: android/app/build/outputs/apk/quest/debug/*.apk

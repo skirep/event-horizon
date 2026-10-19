@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.openai/
+playwright-report/
+test-results/
+android/.gradle/
+android/app/build/
+android/local.properties
+assets/audio/*.wav

@@ -42,5 +42,5 @@ public class MainActivity extends Activity implements SensorEventListener {
  @Override public void onPause(){super.onPause();if(web!=null)web.onPause();if(sensors!=null)sensors.unregisterListener(this);}
  @Override public void onResume(){super.onResume();if(web!=null)web.onResume();if(sensors!=null&&requested)registerSensors();}
  @Override public void onDestroy(){if(web!=null){web.removeJavascriptInterface("AndroidSensors");web.destroy();}super.onDestroy();}
- @Override public void onBackPressed(){if(web!=null)web.evaluateJavascript("document.getElementById('back').click()",null);else super.onBackPressed();}
+ @Override public void onBackPressed(){if(web!=null)web.evaluateJavascript("document.getElementById('menu').click()",null);else super.onBackPressed();}
 }

@@ -1,1 +1,1 @@
-{"name":"event-horizon-multiverse","version":"1.0.0","type":"module","private":true,"scripts":{"check":"node --check app.js && node --check music.js"}}
+{"name":"el-segon-que-falta","version":"2.0.0","type":"module","private":true,"scripts":{"check":"node --check app.js && node --check music.js && node --check worlds.js && node --check journey.js","test":"node --test tests/journey.test.js","test:browser":"playwright test"},"devDependencies":{"@playwright/test":"1.56.1"}}
