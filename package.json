@@ -1,0 +1,1 @@
+{"name":"event-horizon-multiverse","version":"1.0.0","type":"module","private":true,"scripts":{"check":"node --check app.js && node --check music.js"}}

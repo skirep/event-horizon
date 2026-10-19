@@ -1,0 +1,68 @@
+name: Publish web and build Android + Quest
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax and package web
+        run: |
+          node --check app.js
+          node --check music.js
+          mkdir -p dist
+          cp index.html app.js music.js style.css three.module.js manifest.webmanifest sw.js dist/
+          touch dist/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Package offline web assets
+        run: |
+          mkdir -p android/app/src/main/assets
+          cp index.html app.js music.js style.css three.module.js manifest.webmanifest sw.js android/app/src/main/assets/
+      - name: Build mobile and Quest APKs
+        working-directory: android
+        run: gradle assembleMobileDebug assembleQuestDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EventHorizon-Android-Mobile
+          path: android/app/build/outputs/apk/mobile/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EventHorizon-MetaQuest
+          path: android/app/build/outputs/apk/quest/debug/*.apk
