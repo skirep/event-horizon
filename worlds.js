@@ -115,7 +115,7 @@ export function cockpit(){
 export function sky(scene){
  const group=new T.Group();scene.add(group);
  const skyMesh=new T.Mesh(new T.SphereGeometry(400,32,16),new T.ShaderMaterial({side:T.BackSide,depthWrite:false,uniforms:{top:{value:new T.Color('#4b7d98')},bottom:{value:new T.Color('#f2cc98')},night:{value:0},time:{value:0}},vertexShader:'varying vec3 v;void main(){v=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 v;uniform vec3 top;uniform vec3 bottom;uniform float night;uniform float time;void main(){float h=normalize(v).y;vec3 day=mix(bottom,top,smoothstep(-.15,.65,h));vec3 n=mix(vec3(.12,.23,.27),vec3(.018,.035,.09),smoothstep(-.2,.6,h));float band=sin(normalize(v).x*8.+time*.03)*.02;gl_FragColor=vec4(mix(day,n,night)+band,1.);}'}));group.add(skyMesh);
- const sun=sphere(group,'#ffd9a8',100,38,-180,18,1.2),sunGlow=glow(group,'#ffe3b6',100,38,-180,130);
+ const sun=sphere(group,'#ffd9a8',100,38,-180,18,1.2),sunGlow=glow(group,'#ffe3b6',100,38,-180,130);sun.material=new T.MeshBasicMaterial({color:'#ffe4ac',toneMapped:false});
  const starPos=[];for(let i=0;i<2000;i++){let a=rand()*Math.PI*2,b=Math.acos(rand()*2-1),r=270;starPos.push(Math.sin(b)*Math.cos(a)*r,Math.cos(b)*r,Math.sin(b)*Math.sin(a)*r);}
  const sg=new T.BufferGeometry();sg.setAttribute('position',new T.Float32BufferAttribute(starPos,3));const stars=new T.Points(sg,new T.PointsMaterial({color:'#e2efff',size:.65,transparent:true,opacity:0,depthWrite:false}));group.add(stars);
  // Ocean around the village.

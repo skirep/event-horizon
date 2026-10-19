@@ -7,7 +7,7 @@ test('3D, soundtrack, puzzle, movement, maze relays and connected transition',as
  await expect(page.locator('#hud')).toBeVisible();await expect(page.locator('#objective')).toContainText('campanes');
  await page.getByRole('button',{name:'Pausa i opcions'}).click();await page.getByRole('button',{name:'Navegació assistida'}).click();await page.getByRole('button',{name:'TORNA A LA HISTÒRIA'}).click();
  // All movement and actions use public controls; the test never changes game state.
- async function approach(id,label){await page.locator('[data-object="'+id+'"]').click();await expect(page.locator('#target-label')).toContainText(label,{timeout:60000});await page.waitForTimeout(2000);}
+ async function approach(id,label){await page.locator('[data-object="'+id+'"]').click();await expect(page.locator('#target-label')).toContainText(label,{timeout:60000});await expect(page.locator('#action')).toHaveAttribute('data-ready','true',{timeout:60000});}
  async function tap(id,label){await approach(id,label);await page.locator('[data-object="'+id+'"]').click();}
  await tap('sun','SOL');await expect(page.locator('#objective')).toContainText('1/3');
  await tap('wave','ONA');await expect(page.locator('#objective')).toContainText('2/3');

@@ -7,11 +7,12 @@ const CHAPTERS={village:['ACTE I · LA PLAÇA SENSE SEGON','La plaça sense sego
 let renderer;
 try{renderer=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});}catch(e){$('#graphics-error').hidden=false;$('#retry').onclick=()=>location.reload();throw e;}
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
 renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.13;renderer.outputColorSpace=T.SRGBColorSpace;
 renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.xr.setFoveation(1);
 const scene=new T.Scene(),camera=new T.PerspectiveCamera(64,innerWidth/innerHeight,.08,500),rig=new T.Group();rig.add(camera);scene.add(rig);
 const ambient=new T.HemisphereLight('#d6f0ed','#675647',2.0);scene.add(ambient);
-const sunlight=new T.DirectionalLight('#ffe0b1',3.6);sunlight.position.set(30,45,18);scene.add(sunlight);
+const sunlight=new T.DirectionalLight('#ffe0b1',3.6);sunlight.position.set(30,45,18);sunlight.castShadow=true;sunlight.shadow.mapSize.set(1024,1024);Object.assign(sunlight.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:130});sunlight.shadow.bias=-.0008;scene.add(sunlight);
 const fill=new T.PointLight('#a4e8e2',25,40);fill.position.set(0,4,-2);scene.add(fill);
 const atmosphere=sky(scene),ship=cockpit();ship.visible=false;rig.add(ship);
 const heldKey=new T.Group();heldKey.position.set(.45,1.15,-.8);heldKey.scale.setScalar(.14);rig.add(heldKey);
@@ -24,7 +25,7 @@ let assisted=false;let screenTimer,toastTimer,reducedMotion=matchMedia('(prefers
 try{const raw=localStorage.getItem('event-horizon-journey-v2');if(raw){const j=new Journey();const data=JSON.parse(raw);if(j.restore(data)&&!j.completed){checkpointData=data;$('#continue').hidden=false;}}}catch{}
 function save(){try{localStorage.setItem('event-horizon-journey-v2',JSON.stringify(game.save()));}catch{}}
 function toast(s){$('#toast').textContent=s;$('#toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('on'),3300);}
-function getWorld(stage){const key=stage==='home'?'village':stage;if(!cache.has(key)){const w=key==='village'?village():key==='maze'?forest(game):space();cache.set(key,w);scene.add(w.group);}return cache.get(key);}
+function getWorld(stage){const key=stage==='home'?'village':stage;if(!cache.has(key)){const w=key==='village'?village():key==='maze'?forest(game):space();w.group.traverse(o=>{if(o.isMesh){o.receiveShadow=true;o.castShadow=!(o.geometry.type==='CircleGeometry'||o.material.transparent);}});cache.set(key,w);scene.add(w.group);}return cache.get(key);}
 function enterWorld(stage){
  activeStage=stage;world=getWorld(stage);for(const w of cache.values())w.group.visible=w===world;
  scene.fog=new T.FogExp2(stage==='village'?'#bac8b9':stage==='maze'?'#244b49':stage==='home'?'#314654':'#080e21',world.fog);
@@ -32,7 +33,7 @@ function enterWorld(stage){
  camera.position.set(0,1.7,0);rig.rotation.set(0,0,0);targetYaw=yaw=world.yaw||0;targetPitch=pitch=0;
  if(stage==='flight'){ship.visible=true;flightZ=0;positionGate(game.gates);$('#flight-status').hidden=false;$('.map-wrap').hidden=true;}else{ship.visible=false;$('#flight-status').hidden=true;$('.map-wrap').hidden=false;}
  autoPath=[];actionTime=0;routeLine.visible=false;heldKey.visible=game.key&&stage!=='flight';if(game.core){artifact.material.color.set('#8eebe6');artifact.material.emissive.set('#8eebe6');}heldKey.position.set(.45,1.15,-.8);
- ambient.intensity=stage==='village'?2:stage==='maze'?1.8:stage==='home'?1.1:1.2;sunlight.intensity=stage==='village'?3.6:stage==='home'?1.2:stage==='maze'?1.6:.6;
+ ambient.intensity=stage==='village'?.9:stage==='maze'?1.25:stage==='home'?.8:1.2;sunlight.intensity=stage==='village'?3.6:stage==='home'?1.2:stage==='maze'?1.6:.6;
  sunlight.color.set(stage==='village'?'#ffe0b1':stage==='maze'?'#b9e6d0':'#aac6ee');
  updateProgress();updateVrHud();rebuildAssist();save();
 }
@@ -91,13 +92,18 @@ function freeAt(x,z){
 function moveBy(dx,dz){const step=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.18));for(let i=0;i<step;i++){if(freeAt(rig.position.x+dx/step,rig.position.z))rig.position.x+=dx/step;if(freeAt(rig.position.x,rig.position.z+dz/step))rig.position.z+=dz/step;}}
 function relevant(item){if(activeStage==='village')return game.key?item.id==='portal':['sun','wave','moon'].includes(item.id);if(activeStage==='home')return item.id==='clock';if(activeStage==='maze'){if(item.id.startsWith('relay'))return !game.relays.includes(Number(item.id.slice(-1)));if(item.id==='core')return game.relays.length===3&&!game.core;if(item.id==='portal')return game.core;}return false;}
 function targetPosition(item){const p=item.node.getWorldPosition(new T.Vector3());p.y=0;return p;}
+function canSee(item){
+ const p=targetPosition(item),dx=p.x-rig.position.x,dz=p.z-rig.position.z,d=Math.hypot(dx,dz),steps=Math.ceil(d/.2);
+ for(let i=1;i<steps;i++){const x=rig.position.x+dx*i/steps,z=rig.position.z+dz*i/steps;if(world.colliders.some(c=>!(item.id==='clock'&&c.x===0&&c.z===-2)&&Math.abs(x-c.x)<c.hx&&Math.abs(z-c.z)<c.hz))return false;}
+ return true;
+}
 function findTarget(ray=null){
  if(!world||activeStage==='flight')return null;
  const eye=rig.position.clone();eye.y=0;
  let near=null,dist=Infinity;
  if(ray){raycaster.ray.copy(ray);}else {raycaster.setFromCamera(new T.Vector2(0,0),camera);}
  const options=world.interactables.filter(relevant);
- for(const item of options){const p=targetPosition(item),d=eye.distanceTo(p);const hits=raycaster.intersectObject(item.hit,true);if(hits.length&&d<5.8)return item;if(d<3.2&&d<dist){near=item;dist=d;}}
+ for(const item of options){const p=targetPosition(item),d=eye.distanceTo(p);const hits=raycaster.intersectObject(item.hit,true);if(hits.length&&d<5.8&&canSee(item))return item;if(d<3.2&&d<dist&&canSee(item)){near=item;dist=d;}}
  return near;
 }
 function pointItem(x,y){
@@ -114,9 +120,9 @@ function interact(item=activeTarget){
  if(!playing||paused||busy||finish)return;
  if(activeStage==='flight'){shoot();return;}
  if(!item){toast('Acosta’t a un objecte de llum. ? et dona una pista.');return;}
- if(rig.position.distanceTo(targetPosition(item))>3.3){walkTo(item);return;}
+ if(rig.position.distanceTo(targetPosition(item))>3.3||!canSee(item)){walkTo(item);return;}
  if(item.kind==='hold'&&actionTime<1.35){toast('Mantén ACCIÓ per reconnectar el fil.');return;}
- game.interact(item.id);actionTime=0;processEvents();
+ autoPath=[];game.interact(item.id);actionTime=0;processEvents();
 }
 function shoot(){
  if(time-lastShot<.22)return;lastShot=time;score.shoot();
@@ -126,7 +132,7 @@ function shoot(){
  if(hit){end.copy(hit.position);hit.visible=false;burst(end,'#ffc898',24);score.hit();}
  const geometry=new T.BufferGeometry().setFromPoints([origin,end]);const beam=new T.Line(geometry,new T.LineBasicMaterial({color:'#9ff7ee',transparent:true,opacity:1}));scene.add(beam);beams.push({beam,life:.13});
 }
-function pressAction(){if(!playing||paused||busy)return;actionHeld=true;if(activeStage==='flight')shoot();else if(activeTarget?.kind!=='hold')interact();}
+function pressAction(){if(!playing||paused||busy)return;actionHeld=true;if(activeStage==='flight')shoot();else if(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))>3.3){walkTo(activeTarget);actionHeld=false;}else if(activeTarget?.kind!=='hold')interact();}
 function releaseAction(){actionHeld=false;actionTime=0;$('#charge-ring').style.strokeDashoffset=289;}
 $('#action').addEventListener('pointerdown',e=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);pressAction();});$('#action').addEventListener('pointerup',releaseAction);$('#action').addEventListener('pointercancel',releaseAction);
 $('#hint').onclick=()=>{game.hint();processEvents();};
@@ -142,7 +148,7 @@ function flight(dt){
  const y=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-movement.y;
  rig.position.x=T.MathUtils.clamp(rig.position.x+x*dt*10,-14,14);rig.position.y=T.MathUtils.clamp(rig.position.y+y*dt*8,-5,9);
  const speed=11+game.gates*2;world.gate.position.z+=speed*dt;flightZ+=speed*dt;
- world.drones.forEach((d,i)=>{d.position.z+=dt*4;d.position.x=(i-1)*5+Math.sin(time*.65+i)*2;d.position.y=2+Math.sin(time*.5+i)*2;if(d.position.z>2){if(d.visible&&Math.abs(d.position.x-rig.position.x)<2.5&&Math.abs(d.position.y-(rig.position.y+1.7))<2.5){game.shield=Math.max(20,game.shield-6);score.hit();}d.position.z=-50-i*15;d.visible=true;}});
+ world.drones.forEach((d,i)=>{d.position.z+=dt*4;d.position.x=(i-1)*5+Math.sin(time*.65+i)*2;d.position.y=2+Math.sin(time*.5+i)*2;if(d.position.z>2){if(d.visible&&Math.abs(d.position.x-rig.position.x)<2.5&&Math.abs(d.position.y-(rig.position.y+1.7))<2.5){game.shield=Math.max(20,game.shield-6);score.hit();updateProgress();}d.position.z=-50-i*15;d.visible=true;}});
  if(actionHeld)shoot();
  if(world.gate.position.z>1.0){const success=Math.hypot(rig.position.x-world.gate.position.x,rig.position.y+1.7-world.gate.position.y)<5.45;game.crossGate(success);processEvents();if(game.stage==='flight')positionGate(game.gates,!success);}
 }
@@ -214,13 +220,14 @@ renderer.setAnimationLoop(ms=>{
  if(activeStage==='flight')flight(dt);else{
  let mx=movement.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),my=movement.y-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0);
  if(mx||my){autoPath=[];const forward=new T.Vector3();camera.getWorldDirection(forward);forward.y=0;forward.normalize();const right=new T.Vector3(-forward.z,0,forward.x);const d=forward.multiplyScalar(-my).addScaledVector(right,mx);if(d.length()>1)d.normalize();moveBy(d.x*dt*4.2,d.z*dt*4.2);}
- else if(autoPath.length){const p=autoPath[0],d=p.clone().sub(rig.position);d.y=0;const dist=d.length();if(dist<.13)autoPath.shift();else{d.normalize();const before=rig.position.clone();moveBy(d.x*Math.min(dist,dt*3.8),d.z*Math.min(dist,dt*3.8));if(before.distanceTo(rig.position)<.001)autoPath=[];if(!gyro&&!renderer.xr.isPresenting)targetYaw=Math.atan2(-d.x,-d.z);}}
+ else if(autoPath.length){const p=autoPath[0],d=p.clone().sub(rig.position);d.y=0;const dist=d.length();if(dist<(autoPath.length===1?1.9:.13))autoPath.shift();else{d.normalize();const before=rig.position.clone();moveBy(d.x*Math.min(dist,dt*3.8),d.z*Math.min(dist,dt*3.8));if(before.distanceTo(rig.position)<.001)autoPath=[];if(!gyro&&!renderer.xr.isPresenting)targetYaw=Math.atan2(-d.x,-d.z);}}
  scene.updateMatrixWorld(true);
  if(selectedController&&renderer.xr.isPresenting){const p=new T.Vector3(),q=new T.Quaternion();selectedController.getWorldPosition(p);selectedController.getWorldQuaternion(q);activeTarget=findTarget(new T.Ray(p,new T.Vector3(0,0,-1).applyQuaternion(q)));}else activeTarget=findTarget();
  if(actionHeld&&activeTarget?.kind==='hold'&&rig.position.distanceTo(targetPosition(activeTarget))<3.3){actionTime+=dt;$('#charge-ring').style.strokeDashoffset=289*(1-Math.min(1,actionTime/1.35));fill.intensity=25+actionTime*60;if(actionTime>=1.35){interact(activeTarget);releaseAction();}}else{actionTime=0;fill.intensity=25;}
  }
- $('#target-label').textContent=activeStage==='flight'?'TRAVESSA ELS ANELLS · ACCIÓ DISPARA':activeTarget?activeTarget.label:'';
- $('#action-label').textContent=activeStage==='flight'?'DISPARA':activeTarget?.kind==='hold'?'MANTÉN':'ACCIÓ';$('#aim').classList.toggle('ready',!!activeTarget);
+ const ready=activeStage==='flight'||!!(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))<=3.3&&canSee(activeTarget));$('#action').dataset.ready=String(ready);
+ $('#target-label').textContent=activeStage==='flight'?'TRAVESSA ELS ANELLS · ACCIÓ DISPARA':activeTarget?(ready?activeTarget.label:'ACOSTA’T · '+activeTarget.label):'';
+ $('#action-label').textContent=activeStage==='flight'?'DISPARA':activeTarget&&!ready?'ACOSTA’T':activeTarget?.kind==='hold'?'MANTÉN':'ACCIÓ';$('#aim').classList.toggle('ready',!!activeTarget);
  drawMap();$('#music-pulse').style.transform='scaleX('+(score.muted?.3:.35+pulse*.65)+')';$('#music-pulse').style.transformOrigin='left';
  if(routeLine.visible&&time>hintUntil)routeLine.visible=false;
  }
