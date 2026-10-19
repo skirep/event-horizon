@@ -7,7 +7,7 @@ const CHAPTERS={village:['ACTE I · LA PLAÇA SENSE SEGON','La plaça sense sego
 let renderer;
 try{renderer=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});}catch(e){$('#graphics-error').hidden=false;$('#retry').onclick=()=>location.reload();throw e;}
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;
 renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.13;renderer.outputColorSpace=T.SRGBColorSpace;
 renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');renderer.xr.setFoveation(1);
 const scene=new T.Scene(),camera=new T.PerspectiveCamera(64,innerWidth/innerHeight,.08,500),rig=new T.Group();rig.add(camera);scene.add(rig);
@@ -21,7 +21,7 @@ const routeLine=new T.Line(new T.BufferGeometry(),new T.LineBasicMaterial({color
 const bursts=[],beams=[],raycaster=new T.Raycaster(),pointer=new T.Vector2(),tmp=new T.Vector3();
 const cache=new Map();let world,activeStage='village',playing=false,paused=false,busy=false,finish=false,time=0,previous=0,yaw=0,pitch=0,targetYaw=0,targetPitch=0,gyro=false;
 let movement={x:0,y:0},keys=new Set(),autoPath=[],actionHeld=false,actionTime=0,activeTarget=null,lastShot=0,flightZ=0,snapTime=0,hintUntil=0,selectedController=null;
-let assisted=false;let screenTimer,toastTimer,reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches,checkpointData=null;
+let assisted=false;let slowFrames=0,qualityLevel=0;let screenTimer,toastTimer,reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches,checkpointData=null;
 try{const raw=localStorage.getItem('event-horizon-journey-v2');if(raw){const j=new Journey();const data=JSON.parse(raw);if(j.restore(data)&&!j.completed){checkpointData=data;$('#continue').hidden=false;}}}catch{}
 function save(){try{localStorage.setItem('event-horizon-journey-v2',JSON.stringify(game.save()));}catch{}}
 function toast(s){$('#toast').textContent=s;$('#toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('on'),3300);}
@@ -35,7 +35,7 @@ function enterWorld(stage){
  autoPath=[];actionTime=0;routeLine.visible=false;heldKey.visible=game.key&&stage!=='flight';if(game.core){artifact.material.color.set('#8eebe6');artifact.material.emissive.set('#8eebe6');}heldKey.position.set(.45,1.15,-.8);
  ambient.intensity=stage==='village'?.9:stage==='maze'?1.25:stage==='home'?.8:1.2;sunlight.intensity=stage==='village'?3.6:stage==='home'?1.2:stage==='maze'?1.6:.6;
  sunlight.color.set(stage==='village'?'#ffe0b1':stage==='maze'?'#b9e6d0':'#aac6ee');
- updateProgress();updateVrHud();rebuildAssist();save();
+ renderer.shadowMap.needsUpdate=true;updateProgress();updateVrHud();rebuildAssist();save();
 }
 function rebuildAssist(){
  const panel=$('#assist-panel');panel.hidden=!assisted||activeStage==='flight';
@@ -206,7 +206,7 @@ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();save();$('#gra
 $('#retry').onclick=()=>location.reload();
 enterWorld('village');rig.position.set(-13,11,28);camera.position.set(0,0,0);camera.lookAt(0,1,-5);
 renderer.setAnimationLoop(ms=>{
- if(document.hidden)return;const dt=previous?Math.min((ms-previous)/1000,.04):0;previous=ms;
+ if(document.hidden)return;const rawDt=previous?(ms-previous)/1000:0,dt=Math.min(rawDt,.1);previous=ms;if(rawDt>.05&&!renderer.xr.isPresenting)slowFrames++;else slowFrames=Math.max(0,slowFrames-1);if(slowFrames>35&&qualityLevel<2){qualityLevel++;renderer.setPixelRatio(qualityLevel===1?.8:.6);renderer.setSize(innerWidth,innerHeight);slowFrames=0;}
  if(!paused&&!busy)time+=dt;if(playing&&!paused&&!busy&&!finish)game.elapsed+=dt;
  const pulse=score.pulse;atmosphere.update(time,activeStage);atmosphere.group.position.x=rig.position.x;atmosphere.group.position.z=rig.position.z;
  if(!playing){rig.position.x=-13+(reducedMotion?0:Math.sin(time*.09)*1.5);camera.lookAt(0,1,-5);}
