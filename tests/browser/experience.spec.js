@@ -17,7 +17,7 @@ test('3D, soundtrack, puzzle, movement, maze relays and connected transition',as
  await expect(page.locator('#chapter-label')).toContainText('ACTE II',{timeout:30000});await expect(page.locator('#transition')).toBeHidden({timeout:20000});
  await page.getByRole('button',{name:'Pista i ruta'}).click();
  await page.screenshot({path:'test-results/03-maze.png'});
- for(let i=0;i<3;i++){await approach('relay'+i,'FIL '+(i+1));await page.keyboard.down('e');await page.waitForTimeout(1800);await page.keyboard.up('e');}
+ for(let i=0;i<3;i++){await approach('relay'+i,'FIL '+(i+1));await page.keyboard.down('e');await expect(page.locator('[data-object="relay'+i+'"]')).toHaveCount(0,{timeout:20000});await page.keyboard.up('e');}
  await expect(page.locator('#objective')).toContainText('Recull el nucli');await tap('core','NUCLI');
  await expect(page.locator('#core-status')).toContainText('●');
  await tap('portal','ESQUERDA');await expect(page.locator('#chapter-label')).toContainText('ACTE III',{timeout:30000});await expect(page.locator('#transition')).toBeHidden({timeout:20000});

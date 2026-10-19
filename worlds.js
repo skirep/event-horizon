@@ -8,7 +8,7 @@ export function material(color,emission=0){const key=color+':'+emission;if(!mate
 export function mesh(parent,g,color,x=0,y=0,z=0,e=0){const m=new T.Mesh(g,material(color,e));m.position.set(x,y,z);parent.add(m);return m;}
 export function box(p,c,x,y,z,w,h,d,e=0){const m=mesh(p,geo('box',()=>new T.BoxGeometry()),c,x,y,z,e);m.scale.set(w,h,d);return m;}
 export function sphere(p,c,x,y,z,r,e=0){const m=mesh(p,geo('sphere',()=>new T.SphereGeometry(1,24,16)),c,x,y,z,e);m.scale.setScalar(r);return m;}
-export function cylinder(p,c,x,y,z,r1,r2,h,n=12,e=0){return mesh(p,new T.CylinderGeometry(r1,r2,h,n),c,x,y,z,e);}
+export function cylinder(p,c,x,y,z,r1,r2,h,n=12,e=0){return mesh(p,geo('cyl:'+r1+':'+r2+':'+h+':'+n,()=>new T.CylinderGeometry(r1,r2,h,n)),c,x,y,z,e);}
 export function ring(p,c,x,y,z,r,t=.04){return mesh(p,new T.TorusGeometry(r,t,8,80),c,x,y,z,1.5);}
 let rng=4815;function rand(){rng=(1664525*rng+1013904223)>>>0;return rng/4294967296;}
 export function label(text,color='#efdab6',w=4){const c=document.createElement('canvas');c.width=1024;c.height=180;const ctx=c.getContext('2d');ctx.clearRect(0,0,1024,180);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='500 53px sans-serif';ctx.shadowBlur=12;ctx.shadowColor='#07151d';ctx.fillStyle=color;ctx.fillText(text,512,84);const tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;const s=new T.Sprite(new T.SpriteMaterial({map:tex,transparent:true,depthWrite:false}));s.scale.set(w,w*180/1024,1);return s;}
@@ -92,7 +92,7 @@ for(let i=0;i<300;i++){motes.push((rand()-.5)*65,.5+rand()*12,(rand()-.5)*65);co
  const coreMesh=mesh(coreGroup,new T.IcosahedronGeometry(.45,1),'#95eff0',0,1.5,0,2),coreHalo=ring(coreGroup,'#b2efdd',0,1.5,0,.8,.02),coreLight=glow(coreGroup,'#9be4ec',0,1.5,0,4);
  const cl=label('EL NUCLI','#bcebe1',2.5);cl.position.y=2.7;coreGroup.add(cl);w.core=interaction(w,'core',coreGroup,'RECULL EL NUCLI');w.core.mesh=coreMesh;w.core.glow=coreLight;
  w.portal=portal(w,cp.x,cp.z);w.portal.node.position.z-=1.1;w.portal.node.scale.setScalar(.5);w.portal.node.visible=false;
- w.animated.push((t,p)=>{coreMesh.rotation.set(t*.2,t*.4,t*.12);coreMesh.visible=game.relays.length===3&&!game.core;coreHalo.visible=coreMesh.visible;coreLight.visible=coreMesh.visible;w.portal.node.visible=game.core;fireflies.rotation.y=Math.sin(t*.04)*.02;});
+ w.animated.push((t,p)=>{coreMesh.rotation.set(t*.2,t*.4,t*.12);coreMesh.visible=game.relays.length===3&&!game.core;coreHalo.visible=coreMesh.visible;coreLight.visible=coreMesh.visible;w.portal.node.visible=game.core;w.portal.active=game.core;fireflies.rotation.y=Math.sin(t*.04)*.02;});
  w.bounds=43;return w;
 }
 export function space(){

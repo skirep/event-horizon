@@ -20,7 +20,7 @@ const artifact=sphere(heldKey,'#eac78e',0,0,0,1,1.2),artifactRing=ring(heldKey,'
 const routeLine=new T.Line(new T.BufferGeometry(),new T.LineBasicMaterial({color:'#a2f7d0',transparent:true,opacity:.85}));scene.add(routeLine);routeLine.visible=false;
 const bursts=[],beams=[],raycaster=new T.Raycaster(),pointer=new T.Vector2(),tmp=new T.Vector3();
 const cache=new Map();let world,activeStage='village',playing=false,paused=false,busy=false,finish=false,time=0,previous=0,yaw=0,pitch=0,targetYaw=0,targetPitch=0,gyro=false;
-let movement={x:0,y:0},keys=new Set(),autoPath=[],actionHeld=false,actionTime=0,activeTarget=null,lastShot=0,flightZ=0,snapTime=0,hintUntil=0,selectedController=null;
+let movement={x:0,y:0},keys=new Set(),autoPath=[],actionHeld=false,actionTime=0,chargeStarted=null,activeTarget=null,lastShot=0,flightZ=0,snapTime=0,hintUntil=0,selectedController=null;
 let assisted=false;let slowFrames=0,qualityLevel=0;let screenTimer,toastTimer,reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches,checkpointData=null;
 try{const raw=localStorage.getItem('event-horizon-journey-v2');if(raw){const j=new Journey();const data=JSON.parse(raw);if(j.restore(data)&&!j.completed){checkpointData=data;$('#continue').hidden=false;}}}catch{}
 function save(){try{localStorage.setItem('event-horizon-journey-v2',JSON.stringify(game.save()));}catch{}}
@@ -103,7 +103,7 @@ function findTarget(ray=null){
  let near=null,dist=Infinity;
  if(ray){raycaster.ray.copy(ray);}else {raycaster.setFromCamera(new T.Vector2(0,0),camera);}
  const options=world.interactables.filter(relevant);
- for(const item of options){const p=targetPosition(item),d=eye.distanceTo(p);const hits=raycaster.intersectObject(item.hit,true);if(hits.length&&d<5.8&&canSee(item))return item;if(d<3.2&&d<dist&&canSee(item)){near=item;dist=d;}}
+ for(const item of options){const p=targetPosition(item),d=eye.distanceTo(p);const hits=raycaster.intersectObject(item.hit,true);if(hits.length&&d<5.8&&canSee(item))return item;if(d<=3.3&&d<dist&&canSee(item)){near=item;dist=d;}}
  return near;
 }
 function pointItem(x,y){
@@ -133,7 +133,7 @@ function shoot(){
  const geometry=new T.BufferGeometry().setFromPoints([origin,end]);const beam=new T.Line(geometry,new T.LineBasicMaterial({color:'#9ff7ee',transparent:true,opacity:1}));scene.add(beam);beams.push({beam,life:.13});
 }
 function pressAction(){if(!playing||paused||busy)return;actionHeld=true;if(activeStage==='flight')shoot();else if(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))>3.3){walkTo(activeTarget);actionHeld=false;}else if(activeTarget?.kind!=='hold')interact();}
-function releaseAction(){actionHeld=false;actionTime=0;$('#charge-ring').style.strokeDashoffset=289;}
+function releaseAction(){actionHeld=false;actionTime=0;chargeStarted=null;$('#charge-ring').style.strokeDashoffset=289;}
 $('#action').addEventListener('pointerdown',e=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);pressAction();});$('#action').addEventListener('pointerup',releaseAction);$('#action').addEventListener('pointercancel',releaseAction);
 $('#hint').onclick=()=>{game.hint();processEvents();};
 function showRoute(){
@@ -223,7 +223,7 @@ renderer.setAnimationLoop(ms=>{
  else if(autoPath.length){const p=autoPath[0],d=p.clone().sub(rig.position);d.y=0;const dist=d.length();if(dist<(autoPath.length===1?1.9:.13))autoPath.shift();else{d.normalize();const before=rig.position.clone();moveBy(d.x*Math.min(dist,dt*3.8),d.z*Math.min(dist,dt*3.8));if(before.distanceTo(rig.position)<.001)autoPath=[];if(!gyro&&!renderer.xr.isPresenting)targetYaw=Math.atan2(-d.x,-d.z);}}
  scene.updateMatrixWorld(true);
  if(selectedController&&renderer.xr.isPresenting){const p=new T.Vector3(),q=new T.Quaternion();selectedController.getWorldPosition(p);selectedController.getWorldQuaternion(q);activeTarget=findTarget(new T.Ray(p,new T.Vector3(0,0,-1).applyQuaternion(q)));}else activeTarget=findTarget();
- if(actionHeld&&activeTarget?.kind==='hold'&&rig.position.distanceTo(targetPosition(activeTarget))<3.3){actionTime+=dt;$('#charge-ring').style.strokeDashoffset=289*(1-Math.min(1,actionTime/1.35));fill.intensity=25+actionTime*60;if(actionTime>=1.35){interact(activeTarget);releaseAction();}}else{actionTime=0;fill.intensity=25;}
+ if(actionHeld&&activeTarget?.kind==='hold'&&rig.position.distanceTo(targetPosition(activeTarget))<3.3){if(chargeStarted===null)chargeStarted=performance.now();actionTime=(performance.now()-chargeStarted)/1000;$('#charge-ring').style.strokeDashoffset=289*(1-Math.min(1,actionTime/1.35));fill.intensity=25+actionTime*60;if(actionTime>=1.35){interact(activeTarget);releaseAction();}}else{actionTime=0;chargeStarted=null;fill.intensity=25;}
  }
  const ready=activeStage==='flight'||!!(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))<=3.3&&canSee(activeTarget));$('#action').dataset.ready=String(ready);
  if(assisted){for(const b of document.querySelectorAll('#assist-objects button')){const item=world.interactables.find(i=>i.id===b.dataset.object);const available=!!item&&rig.position.distanceTo(targetPosition(item))<=3.3&&canSee(item);b.dataset.ready=String(available);b.title=available?'Activa aquest objecte':'Camina fins a aquest objecte';}}
