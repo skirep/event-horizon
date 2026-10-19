@@ -182,7 +182,7 @@ $('#menu').onclick=()=>{if(playing)togglePause();else toast('Comença la històr
 function restart(){try{localStorage.removeItem('event-horizon-journey-v2');}catch{}location.reload();}
 $('#restart').onclick=restart;$('#again').onclick=restart;$('#about').onclick=()=>{$('#credits').hidden=!$('#credits').hidden;};
 $('#volume').oninput=e=>score.setVolume(+e.target.value);
-$('#sound').onclick=async()=>{if(!score.ctx){try{await score.start(STAGES.indexOf(activeStage));$('#sound').setAttribute('aria-pressed','true');toast('Banda sonora activada');return;}catch{toast('No s’ha pogut carregar la BSO.');return;}}const on=score.toggle();$('#sound').setAttribute('aria-pressed',on);toast(on?'Banda sonora activada':'Banda sonora silenciada');};
+$('#sound').onclick=async()=>{if(!score.ready){try{await score.start(STAGES.indexOf(activeStage));$('#sound').setAttribute('aria-pressed','true');toast('Banda sonora activada');return;}catch{toast('No s’ha pogut carregar la BSO.');return;}}const on=score.toggle();$('#sound').setAttribute('aria-pressed',on);toast(on?'Banda sonora activada':'Banda sonora silenciada');};
 $('#fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{toast('Pantalla completa no disponible en aquest navegador.');}};
 const gyroEuler=new T.Euler(),gyroQuaternion=new T.Quaternion(),gyroFix=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),-Math.PI/2);
 function orientation(e){if(!gyro||e.alpha==null)return;gyroEuler.set(T.MathUtils.degToRad(e.beta||0),T.MathUtils.degToRad(e.alpha||0),-T.MathUtils.degToRad(e.gamma||0),'YXZ');gyroQuaternion.setFromEuler(gyroEuler).multiply(gyroFix);const angle=T.MathUtils.degToRad(screen.orientation?.angle||0);gyroQuaternion.multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),-angle));}
@@ -226,6 +226,7 @@ renderer.setAnimationLoop(ms=>{
  if(actionHeld&&activeTarget?.kind==='hold'&&rig.position.distanceTo(targetPosition(activeTarget))<3.3){actionTime+=dt;$('#charge-ring').style.strokeDashoffset=289*(1-Math.min(1,actionTime/1.35));fill.intensity=25+actionTime*60;if(actionTime>=1.35){interact(activeTarget);releaseAction();}}else{actionTime=0;fill.intensity=25;}
  }
  const ready=activeStage==='flight'||!!(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))<=3.3&&canSee(activeTarget));$('#action').dataset.ready=String(ready);
+ if(assisted){for(const b of document.querySelectorAll('#assist-objects button')){const item=world.interactables.find(i=>i.id===b.dataset.object);const available=!!item&&rig.position.distanceTo(targetPosition(item))<=3.3&&canSee(item);b.dataset.ready=String(available);b.title=available?'Activa aquest objecte':'Camina fins a aquest objecte';}}
  $('#target-label').textContent=activeStage==='flight'?'TRAVESSA ELS ANELLS · ACCIÓ DISPARA':activeTarget?(ready?activeTarget.label:'ACOSTA’T · '+activeTarget.label):'';
  $('#action-label').textContent=activeStage==='flight'?'DISPARA':activeTarget&&!ready?'ACOSTA’T':activeTarget?.kind==='hold'?'MANTÉN':'ACCIÓ';$('#aim').classList.toggle('ready',!!activeTarget);
  drawMap();$('#music-pulse').style.transform='scaleX('+(score.muted?.3:.35+pulse*.65)+')';$('#music-pulse').style.transformOrigin='left';
