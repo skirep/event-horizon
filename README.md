@@ -44,6 +44,7 @@ Debug-signed APKs for sideloading are available in Actions:
 - ElSegon-MetaQuest
 
 ## QA and deployment
+- Pixel-renderer tests cover sprite poses, portrait/landscape rendering and Quest screen hit regions.
 - Pure tests cover wrong puzzle input, locked progression, all maze objective routes over 30 seeds, key/core persistence, ring retry behavior and the ending.
 - Browser QA renders actual WebGL in CI, uses public touch/keyboard/assisted-navigation controls, plays the connected journey and captures screenshots. It never sets adventure state directly.
 - Pages deployment depends on passing browser QA. The previous site stays online if the new experience fails.
@@ -52,10 +53,10 @@ Debug-signed APKs for sideloading are available in Actions:
 
 Three.js r160.1 is vendored under MIT (THREE-LICENSE.txt).
 
-## Part II · El castell de les Marees (v3)
+## Part II · El castell de les Marees (v3.1)
 
 Continue from the Part I ending or choose **PART II · CASTELL I PIRATES** on the title screen (a narrative recap grants the key and core). The castle uses CC0 photographic PBR stone/wood maps and HDR environment lighting; it targets a realistic material treatment within a lightweight mobile/WebXR scene, rather than claiming AAA photorealism. Courtyard walls, towers, voussoir arches, battlements, barred windows, banners and fire surround a playable seal puzzle. Rotate Torre to ☀, Port to ☾ and Mar to ≈, recover the tide chart, and board the ship.
 
-The ship has a curved hull, timber deck, guns, wheel, rigging and wind-filled sails. Challenge Captain Salmorra; choose an original witty response, then press **E / Action / Parry** while the timing signal is gold. Three successful exchanges unlock the helm and ending. Wrong answers reveal a counter; failed parries preserve earned exchanges. Keys 1–3 choose replies. On Quest, point at floating reply text and trigger, then trigger again on the gold sword cue. Soundtrack transitions remain bar-aligned; the parry animation follows the paused/resumed AudioContext clock. New score: ~135 seconds of original chamber and pirate music, plus the existing four cues.
+The pirate chapter is a native 2D Canvas pixel-art game: a side-view timber deck, layered sunset sea, distant castle, rigging and stitched sails. Hand-drawn pixel sprites animate the two duelists through idle, speech, windup, parry, lunge, hurt and victory poses; blade sparks and a brief impact shake mark each exchange. Challenge Captain Salmorra; choose an original witty response, then press **E / Action / Parry** while the timing signal is gold. Three successful exchanges unlock the helm and ending. Wrong answers reveal a counter; failed parries preserve earned exchanges. Keys 1–3 choose replies. On touch devices, use the large reply and parry buttons. On Quest, the same 2D game appears on a theatre screen: point at a reply and trigger, then trigger again on the gold parry cue. Soundtrack transitions remain bar-aligned; the parry animation follows the paused/resumed AudioContext clock. New score: ~135 seconds of original chamber and pirate music, plus the existing four cues.
 
 All textures/HDR and music ship locally in the Android WebView APK; GitHub Pages and Quest Browser share the same app. The Quest APK opens the WebXR experience in Meta Quest Browser. Desktop/mobile browser QA is automated; actual Android and Quest hardware still needs hands-on validation. See assets/textures/CREDITS.md and assets/audio/CREDITS.md for sources/licensing.

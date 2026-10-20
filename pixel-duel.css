@@ -1,0 +1,26 @@
+/* Pirate chapter: native 2D pixel-art stage and readable adventure UI. */
+#pirate-pixels{position:fixed;inset:0;width:100%;height:100%;z-index:2;image-rendering:pixelated;background:#29273f;touch-action:manipulation}
+#pixel-stage-ui{position:fixed;inset:0;z-index:4;pointer-events:none;font-family:ui-monospace,"Cascadia Code",Consolas,monospace;color:#ffe7b1}
+.pixel-heading{position:absolute;top:105px;left:4vw;right:4vw;text-shadow:2px 2px #1a172d}
+.pixel-heading>span{font-size:10px;letter-spacing:.16em;color:#e5ad94}
+.pixel-heading h2{font:600 clamp(17px,2vw,26px)/1.25 ui-monospace,monospace;letter-spacing:-.04em;margin:10px 0}
+.pixel-heading small{font-size:10px;letter-spacing:.1em;color:#b6d2ca}
+#pixel-idle{position:absolute;left:50%;bottom:max(24px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(720px,92vw);background:#171d30ee;border:2px solid #d6aa76;box-shadow:5px 5px 0 #15172c99;padding:16px 20px;text-align:center;pointer-events:auto}
+#pixel-prompt{font-size:13px;line-height:1.5;color:#f1d7af;margin:0 0 14px}
+#pixel-idle button{background:#eebd78;color:#202039;border:2px solid #ffe7b1;box-shadow:3px 3px 0 #7b4f50;padding:12px 22px;font:700 12px ui-monospace,monospace;min-height:46px;letter-spacing:.06em}
+#pixel-idle button:hover{background:#ffe7b1;transform:translateY(-1px)}
+#pixel-idle small{display:block;font-size:8px;letter-spacing:.08em;line-height:1.5;margin-top:12px;color:#9db6b6}
+.pixel-pirates #hud{visibility:hidden;pointer-events:none}
+.pixel-pirates #vignette,.pixel-pirates .filmgrain,.pixel-pirates #gyro{display:none}
+.pixel-pirates #duel{bottom:max(24px,env(safe-area-inset-bottom));width:min(760px,94vw);padding:16px 22px;border:2px solid #d6aa76;border-radius:0;background:#171d30f2;box-shadow:5px 5px 0 #15172c99;font-family:ui-monospace,"Cascadia Code",Consolas,monospace}
+.pixel-pirates #duel h3{font:600 18px/1.4 ui-monospace,monospace;color:#ffe7b1;margin:10px 0 14px}
+.pixel-pirates #duel-score{color:#afcfc8;font-size:10px}
+.pixel-pirates #duel-answers{gap:7px}
+.pixel-pirates #duel-answers button,.pixel-pirates #parry{font:12px/1.45 ui-monospace,monospace;border:1px solid #8b8d96;border-radius:0;color:#eee0bb;background:#2c3547;padding:11px 14px;min-height:44px}
+.pixel-pirates #duel-answers button:hover{background:#425669;border-color:#ffe7b1}
+.pixel-pirates #parry[data-ready=true]{background:#eebd78;color:#171d30;border-color:#ffe7b1;box-shadow:0 0 22px #eebd7855}
+.pixel-pirates .parry-track{background:#353e50}
+.pixel-pirates #parry-zone p{color:#b8ccc2;font:10px/1.5 ui-monospace,monospace}
+.vr-active #pixel-stage-ui,.vr-active #pirate-pixels{display:none}
+@media(max-width:700px){.pixel-heading{top:86px;left:5vw;right:5vw}.pixel-heading>span{font-size:8px}.pixel-heading h2{font-size:18px;margin:9px 0}.pixel-heading small{font-size:9px}#pixel-idle{bottom:max(14px,env(safe-area-inset-bottom));padding:13px 14px;width:94vw}#pixel-prompt{font-size:11px}#pixel-idle button{width:100%;font-size:11px}#pixel-idle small{font-size:7px;margin-top:10px}.pixel-pirates #duel{bottom:max(14px,env(safe-area-inset-bottom));padding:13px 15px}.pixel-pirates #duel h3{font-size:15px}.pixel-pirates #duel-answers button{font-size:11px;padding:10px 11px;min-height:44px}.pixel-pirates #parry-zone p{font-size:9px}}
+@media(max-height:540px){.pixel-heading{top:65px}.pixel-heading h2{font-size:15px;margin:6px 0}.pixel-heading small{font-size:8px}#pixel-idle{bottom:10px;padding:10px 14px;width:min(700px,82vw)}#pixel-prompt{font-size:10px;margin-bottom:8px}#pixel-idle button{min-height:34px;padding:8px 16px;font-size:10px}#pixel-idle small{margin-top:7px;font-size:7px}.pixel-pirates #duel{bottom:10px;padding:10px 14px;width:min(700px,86vw)}.pixel-pirates #duel h3{font-size:13px;margin:5px 0 8px}.pixel-pirates #duel-answers button{font-size:10px;padding:7px 10px;min-height:32px}.pixel-pirates #duel-score{font-size:8px}}

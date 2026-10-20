@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
  namespace 'cat.skirep.eventhorizon'
  compileSdk 35
- defaultConfig { applicationId 'cat.skirep.eventhorizon'; minSdk 26; targetSdk 35; versionCode 3; versionName '3.0' }
+ defaultConfig { applicationId 'cat.skirep.eventhorizon'; minSdk 26; targetSdk 35; versionCode 4; versionName '3.1' }
  flavorDimensions 'device'
  productFlavors {
   mobile { dimension 'device'; applicationIdSuffix '.mobile'; manifestPlaceholders = [appName:'El segon que falta'] }
