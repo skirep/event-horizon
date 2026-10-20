@@ -35,7 +35,7 @@ function enterWorld(stage){
  if(stage==='home'){rig.position.set(0,0,8);world.portal.active=false;}else rig.position.copy(world.spawn);
  camera.position.set(0,1.7,0);rig.rotation.set(0,0,0);targetYaw=yaw=world.yaw||0;targetPitch=pitch=0;
  if(stage==='flight'){ship.visible=true;flightZ=0;positionGate(game.gates);$('#flight-status').hidden=false;$('.map-wrap').hidden=true;}else{ship.visible=false;$('#flight-status').hidden=true;$('.map-wrap').hidden=false;}
- autoPath=[];actionTime=0;routeLine.visible=false;heldKey.visible=game.key&&stage!=='flight';if(game.core){artifact.material.color.set('#8eebe6');artifact.material.emissive.set('#8eebe6');}heldKey.position.set(.37,1.35,-1);
+ autoPath=[];actionTime=0;routeLine.visible=false;heldKey.visible=game.key&&!['flight','castle','pirate'].includes(stage);if(game.core){artifact.material.color.set('#8eebe6');artifact.material.emissive.set('#8eebe6');}heldKey.position.set(.37,1.35,-1);
  ambient.intensity=['castle','pirate'].includes(stage)?.7:stage==='village'?.9:stage==='maze'?1.25:stage==='home'?.8:1.2;sunlight.intensity=['castle','pirate'].includes(stage)?3.2:stage==='village'?3.6:stage==='home'?1.2:stage==='maze'?1.6:.6;
  sunlight.color.set(['castle','pirate'].includes(stage)?'#ffe6bd':stage==='village'?'#ffe0b1':stage==='maze'?'#b9e6d0':'#aac6ee');
  score.ambience(stage);$('#duel').hidden=true;if(stage==='castle')world.updateDials();if(stage==='pirate')world.updateReplies();
@@ -99,14 +99,15 @@ function processEvents(){while(game.events.length){const e=game.events.shift();
  if(e.type==='ending'){score.reward();end();}
  }updateProgress();}
 function end(){finish=true;$('#duel').hidden=true;$('#next-part').hidden=game.sequelComplete;if(game.sequelComplete){$('#ending .kicker').textContent='HAS GUANYAT EL RUMB, A COP D’ENGINY';$('#ending h1').innerHTML='El mar no oblida.<br><em>Tu tampoc.</em>';$('#ending p').textContent='Una clau, un castell i una capitana amb massa paraules. La carta de marees continua més enllà de l’horitzó.';$('#ending small').textContent='FI DE LA SEGONA PART · BON VENT.';} save();setTimeout(()=>{$('#ending').hidden=false;$('#hud').hidden=true;$('#ending-stats').textContent=(game.sequelComplete?'CASTELL DESXIFRAT · 3 INTERCANVIS GUANYATS · ':'3 FILS RECONNECTATS · 3 VECTORS ESTABILITZATS · ')+Math.max(1,Math.round(game.elapsed/60))+' MINUTS DE VIATGE';},1600);}
-function burst(pos,color,n=24){const positions=[],vel=[];for(let i=0;i<n;i++){positions.push(pos.x,pos.y,pos.z);vel.push((Math.random()-.5)*3,Math.random()*2+.3,(Math.random()-.5)*3);}const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));const m=new T.PointsMaterial({color,size:.08,transparent:true,opacity:1,blending:T.AdditiveBlending,depthWrite:false});const points=new T.Points(g,m);scene.add(points);bursts.push({points,vel,life:1.6});}
+const particleCanvas=document.createElement('canvas');particleCanvas.width=particleCanvas.height=32;const pc=particleCanvas.getContext('2d'),pg=pc.createRadialGradient(16,16,0,16,16,16);pg.addColorStop(0,'#fff');pg.addColorStop(.3,'#ffffffaa');pg.addColorStop(1,'#ffffff00');pc.fillStyle=pg;pc.fillRect(0,0,32,32);const particleMap=new T.CanvasTexture(particleCanvas);
+function burst(pos,color,n=24){const positions=[],vel=[];for(let i=0;i<n;i++){positions.push(pos.x,pos.y,pos.z);vel.push((Math.random()-.5)*3,Math.random()*2+.3,(Math.random()-.5)*3);}const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));const m=new T.PointsMaterial({map:particleMap,alphaTest:.02,color,size:.055,transparent:true,opacity:1,blending:T.AdditiveBlending,depthWrite:false});const points=new T.Points(g,m);scene.add(points);bursts.push({points,vel,life:1.6});}
 function freeAt(x,z){
  if(world?.deckBoundary&&Math.abs(x)>Math.min(4.35,5.3*Math.pow(Math.max(.015,Math.cos(z/34*Math.PI)),.42)-.5))return false;
  if(Math.abs(x)>(world?.bounds||43)||Math.abs(z)>(world?.bounds||43))return false;
  return !world.colliders.some(c=>Math.abs(x-c.x)<c.hx+.22&&Math.abs(z-c.z)<c.hz+.22);
 }
 function moveBy(dx,dz){const step=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.18));for(let i=0;i<step;i++){if(freeAt(rig.position.x+dx/step,rig.position.z))rig.position.x+=dx/step;if(freeAt(rig.position.x,rig.position.z+dz/step))rig.position.z+=dz/step;}}
-function relevant(item){if(activeStage==='castle')return game.chart?item.id==='embark':item.id.startsWith('dial')||item.id==='chart';if(activeStage==='pirate')return game.duelWins>=3?item.id==='helm':game.duelPhase==='reply'?item.id.startsWith('reply'):game.duelPhase==='idle'&&item.id==='captain';if(activeStage==='village')return game.key?item.id==='portal':['sun','wave','moon'].includes(item.id);if(activeStage==='home')return item.id==='clock';if(activeStage==='maze'){if(item.id.startsWith('relay'))return !game.relays.includes(Number(item.id.slice(-1)));if(item.id==='core')return game.relays.length===3&&!game.core;if(item.id==='portal')return game.core;}return false;}
+function relevant(item){if(activeStage==='castle')return game.chart?item.id==='embark':item.id.startsWith('dial')||item.id==='chart';if(activeStage==='pirate')return game.duelWins>=3?item.id==='helm':game.duelPhase==='reply'?renderer.xr.isPresenting&&item.id.startsWith('reply'):game.duelPhase==='idle'&&item.id==='captain';if(activeStage==='village')return game.key?item.id==='portal':['sun','wave','moon'].includes(item.id);if(activeStage==='home')return item.id==='clock';if(activeStage==='maze'){if(item.id.startsWith('relay'))return !game.relays.includes(Number(item.id.slice(-1)));if(item.id==='core')return game.relays.length===3&&!game.core;if(item.id==='portal')return game.core;}return false;}
 function targetPosition(item){const p=item.node.getWorldPosition(new T.Vector3());p.y=0;return p;}
 function canSee(item){
  const p=targetPosition(item),dx=p.x-rig.position.x,dz=p.z-rig.position.z,d=Math.hypot(dx,dz),steps=Math.ceil(d/.2);
@@ -151,18 +152,19 @@ function shoot(){
 let parryAt=0;
 const duelClock=()=>score.ctx?score.ctx.currentTime:time;
 function syncDuel(){
+ $('#parry').dataset.ready='false';$('#parry').textContent='ESPERA EL SENYAL DAURAT';
  const panel=$('#duel');panel.hidden=activeStage!=='pirate'||game.duelPhase==='idle';
  $('#duel-insult').textContent=INSULTS[game.duelRound%INSULTS.length].attack;
  $('#duel-score').textContent='ENGINY '+game.duelWins+'/3 · TEMPLE '+game.duelLife+'/3';
  $('#duel-answers').hidden=game.duelPhase!=='reply';$('#parry-zone').hidden=game.duelPhase!=='parry';
  const list=$('#duel-answers');list.replaceChildren();
  if(game.duelPhase==='reply'){rig.position.set(0,0,1);targetYaw=yaw=0;targetPitch=pitch=0;autoPath=[];optionsFor(game.duelRound).forEach((text,i)=>{const b=document.createElement('button');b.textContent=(i+1)+'. '+text;b.dataset.reply=i;b.onclick=()=>{if(paused||busy)return;game.interact('reply'+i);processEvents();};list.append(b);});}
- world.updateReplies();updateVrHud();
+ world.updateReplies(renderer.xr.isPresenting);updateVrHud();
 }
 function attemptParry(){if(paused||busy||game.duelPhase!=='parry')return;resolveParry(game,Math.abs(duelClock()-parryAt)<.62);processEvents();}
-$('#parry').onclick=attemptParry;
+$('#parry').addEventListener('pointerdown',e=>{e.preventDefault();attemptParry();});$('#parry').addEventListener('click',e=>{if(e.detail===0)attemptParry();});
 function animateDuel(){
- const phase=game.duelPhase;world.playerSword.visible=phase!=='idle';
+ const phase=game.duelPhase;for(const i of world.interactables.filter(o=>o.id.startsWith('reply')))i.node.visible=phase==='reply'&&renderer.xr.isPresenting;world.playerSword.visible=phase!=='idle';
  if(phase==='parry'){
   const delta=duelClock()-parryAt,ready=Math.abs(delta)<.62;
   $('#parry').dataset.ready=String(ready);$('#parry').textContent=ready?'ARA · PARA L’ESPASA!':'ESPERA EL SENYAL DAURAT';

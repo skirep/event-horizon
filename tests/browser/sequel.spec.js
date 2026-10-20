@@ -18,7 +18,7 @@ test('Part II: castle seals, chart, boarding, witty replies and timed sword parr
   await page.locator('#duel-answers button').filter({hasText:replies[round]}).click();
   await expect(page.locator('#parry')).toHaveAttribute('data-ready','true',{timeout:10000});
   // Public timing button, same action as E/touch/Quest trigger.
-  await page.locator('#parry').click();await expect(page.locator('#objective')).toContainText(round===2?'Pren el timó':(round+1)+'/3');
+  await page.keyboard.press('e');await expect(page.locator('#objective')).toContainText(round===2?'Pren el timó':(round+1)+'/3');
  }
  await page.screenshot({path:'test-results/10-duel-won.png'});
  await (await near('helm')).click();await expect(page.locator('#ending')).toBeVisible({timeout:10000});await expect(page.locator('#ending h1')).toContainText('El mar no oblida');

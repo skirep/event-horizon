@@ -26,6 +26,15 @@ function cyl(p,m,x,y,z,r,h,n=24){const g=new T.CylinderGeometry(r,r,h,n),u=g.att
 function rope(p,a,b,r=.025,m=mortar){const v=new T.Vector3(...b).sub(new T.Vector3(...a));const o=mesh(p,new T.CylinderGeometry(r,r,v.length(),6),m,...new T.Vector3(...a).addScaledVector(v,.5).toArray());o.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),v.normalize());return o;}
 function item(w,id,x,z,text,build){const g=new T.Group();g.userData.dynamic=true;g.position.set(x,0,z);w.group.add(g);build?.(g);const i={id,node:g,position:g.position,hit:g,kind:'tap',label:text};w.interactables.push(i);return i;}
 function world(){return {group:new T.Group(),interactables:[],colliders:[],animated:[],spawn:new T.Vector3(0,0,9),yaw:0,fog:.003,bounds:15};}
+function sealSymbol(value,color='#f5e8c3'){
+ const c=document.createElement('canvas');c.width=c.height=256;const a=c.getContext('2d');a.strokeStyle=a.fillStyle=color;a.lineWidth=13;a.lineCap='round';a.lineJoin='round';a.beginPath();
+ if(value===0){a.moveTo(128,37);a.lineTo(214,128);a.lineTo(128,219);a.lineTo(42,128);a.closePath();a.stroke();}
+ if(value===1){a.arc(128,128,40,0,Math.PI*2);a.stroke();for(let i=0;i<8;i++){const t=i*Math.PI/4;a.beginPath();a.moveTo(128+Math.sin(t)*63,128+Math.cos(t)*63);a.lineTo(128+Math.sin(t)*88,128+Math.cos(t)*88);a.stroke();}}
+ if(value===2)for(let y=85;y<=170;y+=42){a.beginPath();a.moveTo(37,y);a.bezierCurveTo(78,y-48,170,y+48,219,y);a.stroke();}
+ if(value===3){a.arc(128,128,83,0,Math.PI*2);a.fill();a.globalCompositeOperation='destination-out';a.beginPath();a.arc(164,97,76,0,Math.PI*2);a.fill();}
+ const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;const o=new T.Sprite(new T.SpriteMaterial({map:t,transparent:true,depthWrite:false}));o.scale.set(.9,.9,1);return o;
+}
+function replyCard(text){const c=document.createElement('canvas');c.width=1024;c.height=210;const a=c.getContext('2d');a.fillStyle='#18282aee';a.fillRect(0,0,1024,210);a.strokeStyle='#d4b880';a.lineWidth=3;a.strokeRect(3,3,1018,204);a.fillStyle='#f3e3bf';a.textAlign='center';a.font='36px sans-serif';const words=text.split(' ');let row='',lines=[];for(const word of words){if(a.measureText(row+' '+word).width>930){lines.push(row);row=word;}else row+=(row?' ':'')+word;}if(row)lines.push(row);lines.slice(0,3).forEach((line,i)=>a.fillText(line,512,85+(i-(lines.length-1)/2)*45));const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;const o=new T.Sprite(new T.SpriteMaterial({map:t,transparent:true,depthWrite:false}));o.scale.set(3.2,.66,1);return o;}
 function sign(p,text,x,y,z,w=4){const s=label(text,'#f1dbb2',w);s.position.set(x,y,z);p.add(s);return s;}
 function arch(p,m,x,y,z,width=3,height=5,depth=1.5){const r=width/2,stem=height-r;block(p,m,x-r-.55,y+stem/2,z,1.1,stem,depth);block(p,m,x+r+.55,y+stem/2,z,1.1,stem,depth);for(let i=0;i<13;i++){const a=(i+.5)*Math.PI/13;const o=block(p,m,x+Math.cos(a)*(r+.5),y+stem+Math.sin(a)*(r+.5),z,.95,.9,depth);o.rotation.z=a-Math.PI/2;}}
 function brazier(w,x,z){const g=new T.Group();g.userData.dynamic=true;g.position.set(x,0,z);w.group.add(g);cyl(g,iron,0,.8,0,.12,1.6);const bowl=mesh(g,new T.SphereGeometry(.4,16,8,0,Math.PI*2,0,Math.PI/2),iron,0,1.55,0);bowl.rotation.x=Math.PI;const fire=mesh(g,new T.ConeGeometry(.22,.8,8),new T.MeshBasicMaterial({color:'#ffb64b'}),0,1.8,0);const halo=glow(g,'#ffac51',0,1.9,0,2.2);const light=new T.PointLight('#ffab51',12,8,2);light.position.y=2;g.add(light);w.animated.push((t)=>{fire.scale.set(.8+Math.sin(t*17+x)*.1,1+Math.sin(t*13)*.2,.8);halo.material.opacity=.3+Math.sin(t*9+x)*.05;light.intensity=10+Math.sin(t*11+x)*2;});}
@@ -45,7 +54,7 @@ export function castle(game){
  for(const x of [-7,0,7]){arch(g,stone,x,9,-16.3,1.7,4,.9);block(g,iron,x,10.7,-16.35,1.6,3.5,.15);for(let j=-.5;j<1;j+=.5)block(g,brass,x+j,10.7,-16.2,.035,3.5,.1);}
  for(const x of [-11,11]){const pole=rope(g,[x,9,-15],[x,12,-15],.045,iron);const banner=block(g,new T.MeshStandardMaterial({color:'#572f32',roughness:1,side:T.DoubleSide}),x,10,-14.9,1.7,3,.035);sign(g,'☾',x,10.3,-14.7,1);banner.userData.dynamic=true;w.animated.push(t=>{banner.rotation.y=Math.sin(t*1.6+x)*.08;});}
  // Damp paving: independent stone UV coordinates and low grazing reflections.
- const paving=stone.clone();paving.color.set('#adaf9d');paving.roughness=.53;block(g,paving,0,.015,0,30,.04,30);
+ const paving=stone.clone();paving.color.set('#adaf9d');paving.roughness=.8;block(g,paving,0,.015,0,30,.04,30);
  // Central route is clear: all puzzle stations can be reached without invisible blockers.
  sign(g,'CASTELL DE LES MAREES',0,7.2,-14.4,9);
  sign(g,'TORRE ☀   ·   PORT ☾   ·   MAR ≈',0,5.9,-14.3,9);
@@ -54,7 +63,7 @@ export function castle(game){
   const x=(i-1)*5;
   item(w,'dial'+i,x,-5,['SEGELL DE LA TORRE','SEGELL DEL PORT','SEGELL DE LA MAR'][i],p=>{
    block(p,stone,0,.6,0,1.8,1.2,1.2);const dial=cyl(p,brass,0,1.6,0,.68,.2,48);dial.rotation.x=Math.PI/2;
-   const glyph=sign(p,GLYPHS[game.dials[i]],0,1.65,.2,1.2);w.dialSymbols.push(glyph);sign(p,['TORRE','PORT','MAR'][i],0,2.65,0,2.5);
+   const glyph=sealSymbol(game.dials[i]);glyph.position.set(0,1.6,.22);p.add(glyph);w.dialSymbols.push(glyph);sign(p,['TORRE','PORT','MAR'][i],0,2.65,0,2.5);
   });
  }
  item(w,'chart',0,-11,'OBRE LA CARTA DE MAREES',p=>{block(p,wood,0,.7,0,2,1.4,1.2);const page=block(p,new T.MeshStandardMaterial({color:'#d6c492',roughness:.9}),0,1.45,.1,1.6,.08,1);page.rotation.x=.12;for(let r of [.2,.4,.6]){const o=mesh(p,new T.TorusGeometry(r,.008,4,40),iron,0,1.51,.1);o.rotation.x=-Math.PI/2;}w.animated.push(()=>page.visible=!game.chart);sign(p,'LA CARTA DE MAREES',0,2.45,0,4);});
@@ -62,7 +71,7 @@ export function castle(game){
  for(const x of [-8,8])for(const z of [-12,4])brazier(w,x,z);
  // Wind-carried motes at physical courtyard scale.
  const ps=[];for(let i=0;i<100;i++)ps.push(Math.sin(i*47)*14,1+(i%17)*.4,Math.cos(i*23)*14);const pg=new T.BufferGeometry();pg.setAttribute('position',new T.Float32BufferAttribute(ps,3));const dust=new T.Points(pg,new T.PointsMaterial({color:'#e9d7ac',size:.025,transparent:true,opacity:.45,depthWrite:false}));dust.userData.dynamic=true;g.add(dust);w.animated.push(t=>dust.position.x=Math.sin(t*.15)*.4);
- w.updateDials=()=>{w.dialSymbols.forEach((s,i)=>{const n=label(GLYPHS[game.dials[i]],game.dials[i]===[1,3,2][i]?'#a8ecd5':'#f1dbb2',1.2);s.material.map.dispose();s.material.dispose();s.material=n.material;});};
+ w.updateDials=()=>{w.dialSymbols.forEach((s,i)=>{const n=sealSymbol(game.dials[i],game.dials[i]===[1,3,2][i]?'#a8ecd5':'#f1dbb2');s.material.map.dispose();s.material.dispose();s.material=n.material;});};
  batchMasonry(w);return w;
 }
 function sword(p,x=0,y=0,z=0){const g=new T.Group();g.position.set(x,y,z);p.add(g);const blade=block(g,new T.MeshStandardMaterial({color:'#cbd1d0',metalness:1,roughness:.19}),0,.8,0,.075,1.45,.025);blade.rotation.z=-.03;block(g,brass,0,.05,0,.5,.07,.08);cyl(g,iron,0,-.12,0,.05,.3,12);const guard=mesh(g,new T.TorusGeometry(.17,.022,8,24,Math.PI),brass,.1,-.03,0);guard.rotation.z=-Math.PI/2;return g;}
@@ -111,7 +120,7 @@ export function pirate(game){
  }
  item(w,'helm',0,10,'PREN EL TIMÓ · MARCA EL RUMB',p=>{block(p,dark,0,.7,0,.3,1.4,.4);const wheel=mesh(p,new T.TorusGeometry(.7,.06,8,48),wood,0,1.5,0);for(let i=0;i<8;i++){const a=i*Math.PI/4;rope(p,[0,1.5,0],[Math.cos(a)*.95,1.5+Math.sin(a)*.95,0],.035,wood);}cyl(p,brass,0,1.5,0,.12,.15,16).rotation.x=Math.PI/2;const h=glow(p,'#f0cf81',0,1.6,0,3);w.animated.push((t,b)=>h.material.opacity=game.duelWins>=3?.25+b*.2:0);sign(p,'EL RUMB ÉS TEU',0,2.8,0,3);});
  w.playerSword=sword(g,.55,1.05,-.5);w.playerSword.userData.dynamic=true;w.playerSword.visible=false;
- w.updateReplies=()=>{for(let i=0;i<3;i++){const obj=w.interactables.find(o=>o.id==='reply'+i);obj.node.visible=game.duelPhase==='reply';const text=optionsFor(game.duelRound)[i];const n=label((i+1)+'. '+text,'#f1dbb2',7);w.replySigns[i].material.map.dispose();w.replySigns[i].material.dispose();w.replySigns[i].material=n.material;w.replySigns[i].scale.copy(n.scale);obj.node.position.set(0,.35-i*.42,-1);}};
+ w.updateReplies=(vr=false)=>{for(let i=0;i<3;i++){const obj=w.interactables.find(o=>o.id==='reply'+i);obj.node.visible=vr&&game.duelPhase==='reply';const text=optionsFor(game.duelRound)[i];const n=replyCard((i+1)+'. '+text);w.replySigns[i].material.map.dispose();w.replySigns[i].material.dispose();w.replySigns[i].material=n.material;w.replySigns[i].scale.copy(n.scale);obj.node.position.set(0,.6-i*.7,-1);}};
  batchMasonry(w);return w;
 }
 
