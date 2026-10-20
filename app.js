@@ -187,11 +187,15 @@ function showRoute(){
  const start=toCell(rig.position.x,rig.position.z);const path=mazePath(game.maze,start,end).map(p=>toWorld(...p).add(new T.Vector3(0,.14,0)));
  routeLine.geometry.dispose();routeLine.geometry=new T.BufferGeometry().setFromPoints(path);routeLine.visible=path.length>0;
 }
-function positionGate(index,retry=false){const centers=[[-3,3],[5,5],[-2,1.8]],c=centers[index%3];world.gate.position.set(c[0],c[1],retry?-85:-105-index*15);world.gate.visible=true;flightZ=0;}
+function updateFlightGuidance(){
+ const dx=world.gate.position.x-rig.position.x,dy=world.gate.position.y-(rig.position.y+1.7),guide=$('#flight-guidance');guide.dataset.horizontal=Math.abs(dx)<2.5?'aligned':dx>0?'right':'left';guide.dataset.vertical=Math.abs(dy)<2.5?'aligned':dy>0?'up':'down';guide.textContent=Math.hypot(dx,dy)<4?'VECTOR ALINEAT':'CORREGEIX '+(Math.abs(dx)>=2.5?(dx>0?'DRETA →':'← ESQUERRA'):'')+' '+(Math.abs(dy)>=2.5?(dy>0?'AMUNT ↑':'AVALL ↓'):'');
+}
+function positionGate(index,retry=false){const centers=[[-3,3],[5,5],[-2,1.8]],c=centers[index%3];world.gate.position.set(c[0],c[1],retry?-85:-105-index*15);world.gate.visible=true;flightZ=0;updateFlightGuidance();}
 function flight(dt){
  const x=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+movement.x;
  const y=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0)-movement.y;
  rig.position.x=T.MathUtils.clamp(rig.position.x+x*dt*10,-14,14);rig.position.y=T.MathUtils.clamp(rig.position.y+y*dt*8,-5,9);
+ updateFlightGuidance();
  const speed=11+game.gates*2;world.gate.position.z+=speed*dt;flightZ+=speed*dt;
  world.drones.forEach((d,i)=>{d.position.z+=dt*4;d.position.x=(i-1)*5+Math.sin(time*.65+i)*2;d.position.y=2+Math.sin(time*.5+i)*2;if(d.position.z>2){if(d.visible&&Math.abs(d.position.x-rig.position.x)<2.5&&Math.abs(d.position.y-(rig.position.y+1.7))<2.5){game.shield=Math.max(20,game.shield-6);score.hit();updateProgress();}d.position.z=-50-i*15;d.visible=true;}});
  if(actionHeld)shoot();
