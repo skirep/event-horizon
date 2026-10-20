@@ -1,7 +1,7 @@
 import * as T from './three.module.js';
 import {Journey,mazePath,STAGES} from './journey.js';
 import {village,forest,space,cockpit,sky,label,ring,sphere,glow,toWorld,toCell,TILE} from './worlds.js';
-import {castle,pirate,loadSequelAssets,sequelEnvironment} from './sequel-worlds.js';
+import {castle,pirate,loadSequelAssets,sequelEnvironment,sequelBackdrop} from './sequel-worlds.js';
 import {INSULTS,optionsFor,resolveParry} from './sequel.js';
 import {Soundtrack} from './music.js';
 const $=s=>document.querySelector(s),canvas=$('#world'),score=new Soundtrack(),game=new Journey();
@@ -30,7 +30,7 @@ function toast(s){$('#toast').textContent=s;$('#toast').classList.add('on');clea
 function getWorld(stage){const key=stage==='home'?'village':stage;if(!cache.has(key)){const w=key==='village'?village():key==='maze'?forest(game):key==='castle'?castle(game):key==='pirate'?pirate(game):space();w.group.traverse(o=>{if(o.isMesh){o.receiveShadow=true;o.castShadow=!(o.geometry.type==='CircleGeometry'||o.material.transparent);}});cache.set(key,w);scene.add(w.group);}return cache.get(key);}
 function enterWorld(stage){
  activeStage=stage;world=getWorld(stage);for(const w of cache.values())w.group.visible=w===world;
- scene.environment=['castle','pirate'].includes(stage)?sequelEnvironment():null;
+ scene.environment=['castle','pirate'].includes(stage)?sequelEnvironment():null;scene.background=['castle','pirate'].includes(stage)?sequelBackdrop():null;
  scene.fog=new T.FogExp2(stage==='castle'?'#c5c7b4':stage==='pirate'?'#b3c4be':stage==='village'?'#bac8b9':stage==='maze'?'#244b49':stage==='home'?'#314654':'#080e21',world.fog);
  if(stage==='home'){rig.position.set(0,0,8);world.portal.active=false;}else rig.position.copy(world.spawn);
  camera.position.set(0,1.7,0);rig.rotation.set(0,0,0);targetYaw=yaw=world.yaw||0;targetPitch=pitch=0;
@@ -38,7 +38,7 @@ function enterWorld(stage){
  autoPath=[];actionTime=0;routeLine.visible=false;heldKey.visible=game.key&&stage!=='flight';if(game.core){artifact.material.color.set('#8eebe6');artifact.material.emissive.set('#8eebe6');}heldKey.position.set(.37,1.35,-1);
  ambient.intensity=['castle','pirate'].includes(stage)?.7:stage==='village'?.9:stage==='maze'?1.25:stage==='home'?.8:1.2;sunlight.intensity=['castle','pirate'].includes(stage)?3.2:stage==='village'?3.6:stage==='home'?1.2:stage==='maze'?1.6:.6;
  sunlight.color.set(['castle','pirate'].includes(stage)?'#ffe6bd':stage==='village'?'#ffe0b1':stage==='maze'?'#b9e6d0':'#aac6ee');
- $('#duel').hidden=true;if(stage==='castle')world.updateDials();if(stage==='pirate')world.updateReplies();
+ score.ambience(stage);$('#duel').hidden=true;if(stage==='castle')world.updateDials();if(stage==='pirate')world.updateReplies();
  renderer.shadowMap.needsUpdate=true;updateProgress();updateVrHud();rebuildAssist();save();
 }
 function rebuildAssist(){
@@ -53,7 +53,8 @@ function updateProgress(){
  $('#chapter-label').textContent=CHAPTERS[activeStage][0];$('#objective').textContent=game.objective();rebuildAssist();$('#dialogue').textContent=game.message;
  $('#key-status').textContent=game.key?'◆ CLAU MERIDIANA':'◇ CLAU ADORMIDA';$('#key-status').classList.toggle('owned',game.key);
  $('#core-status').textContent=game.core?'● NUCLI CONNECTAT':'○ NUCLI ABSENT';$('#core-status').classList.toggle('owned',game.core);
- const st=STAGES.indexOf(game.stage);for(let i=0;i<3;i++){$('#step'+i).classList.toggle('active',i===Math.min(st,2));$('#step'+i).classList.toggle('done',i<st);}
+ if(['castle','pirate'].includes(activeStage)){$('#key-status').textContent='◆ CLAU DEL CASTELL';$('#core-status').textContent=game.chart?'✧ CARTA DE MAREES':'◇ CARTA AMAGADA';}
+ const second=['castle','pirate'].includes(game.stage);const st=second?(game.stage==='castle'?0:game.duelWins>=3?2:1):STAGES.indexOf(game.stage);for(let i=0;i<3;i++){$('#step'+i).innerHTML=(i+1)+' <b>'+(second?['ELS SEGELLS','EL DUEL','EL RUMB']:['EL RELLOTGE','ELS FILS','EL RETORN'])[i]+'</b>';$('#step'+i).classList.toggle('active',i===Math.min(st,2));$('#step'+i).classList.toggle('done',i<st);}
  $('#shield').textContent='ESCUT '+game.shield+'%';$('#gate-count').textContent='ANELL '+Math.min(3,game.gates+1)+' / 3';$('#map-label').textContent=activeStage==='castle'?'EL CASTELL · PATI D’ARMES':activeStage==='pirate'?'LA SALMORRA · COBERTA':activeStage==='maze'?'ELS FILS · LA CLAU ÉS EL TEU FAR':'LA PLAÇA · N ↑';updateVrHud();
 }
 async function begin(resume=false){
@@ -88,9 +89,9 @@ function processEvents(){while(game.events.length){const e=game.events.shift();
  if(e.type==='dial'){world.updateDials();score.bell('sun',true);save();}
  if(e.type==='chart'){score.reward();toast('CARTA DE MAREES OBTINGUDA');save();}
  if(e.type==='duel'){syncDuel();}
- if(e.type==='parryReady'){parryAt=duelClock()+2+(score.beat===null?0:(1-score.beat%1)*.5);world.striking=true;syncDuel();}
- if(e.type==='duelHit'){score.hit();world.striking=false;syncDuel();save();}
- if(e.type==='parryWin'){score.reward();burst(new T.Vector3(0,1.6,-2),'#ffe4ad',18);world.striking=false;syncDuel();save();}
+ if(e.type==='parryReady'){parryAt=score.ctx?score.nextBar()+120/116:time+2;world.striking=true;syncDuel();}
+ if(e.type==='duelHit'){score.clash(false);world.striking=false;syncDuel();save();}
+ if(e.type==='parryWin'){score.clash(true);score.reward();burst(new T.Vector3(0,1.6,-2),'#ffe4ad',18);world.striking=false;syncDuel();save();}
  if(e.type==='stage')changeWorld(e.stage);
  if(e.type==='gate'){score.reward();toast('VECTOR '+e.index+' ESTABILITZAT');save();}
  if(e.type==='damage')score.hit();
@@ -249,7 +250,7 @@ enterWorld('village');rig.position.set(-13,11,28);camera.position.set(0,0,0);cam
 renderer.setAnimationLoop(ms=>{
  if(document.hidden)return;const rawDt=previous?(ms-previous)/1000:0,dt=Math.min(rawDt,.25);previous=ms;if(rawDt>.05&&!renderer.xr.isPresenting)slowFrames++;else slowFrames=Math.max(0,slowFrames-1);if(slowFrames>35&&qualityLevel<2){qualityLevel++;renderer.setPixelRatio(qualityLevel===1?.8:.6);renderer.setSize(innerWidth,innerHeight);slowFrames=0;}
  if(!paused&&!busy)time+=dt;if(playing&&!paused&&!busy&&!finish)game.elapsed+=dt;
- const pulse=score.pulse;atmosphere.update(time,activeStage);atmosphere.group.position.x=rig.position.x;atmosphere.group.position.z=rig.position.z;
+ const pulse=score.pulse;atmosphere.update(time,activeStage);const realSky=['castle','pirate'].includes(activeStage);atmosphere.skyMesh.visible=!realSky;if(realSky){atmosphere.sun.visible=false;atmosphere.sunGlow.visible=false;}atmosphere.group.position.x=rig.position.x;atmosphere.group.position.z=rig.position.z;
  if(!playing){rig.position.x=-13+(reducedMotion?0:Math.sin(time*.09)*1.5);camera.lookAt(0,1,-5);}
  if(world&&!paused){for(const animate of world.animated)animate(time,pulse,busy?0:dt);}
  // Inventory stays with the traveller in all three chapters.

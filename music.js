@@ -37,6 +37,14 @@ export class Soundtrack{
   const t=this.ctx.currentTime+delay,osc=this.ctx.createOscillator(),env=this.ctx.createGain();osc.type='sine';osc.frequency.value=frequency;env.gain.setValueAtTime(.0001,t);env.gain.exponentialRampToValueAtTime(volume,t+.01);env.gain.exponentialRampToValueAtTime(.0001,t+duration);osc.connect(env);env.connect(this.master);osc.start(t);osc.stop(t+duration+.02);
   const overtone=this.ctx.createOscillator(),g=this.ctx.createGain();overtone.frequency.value=frequency*2.76;g.gain.setValueAtTime(volume*.18,t);g.gain.exponentialRampToValueAtTime(.0001,t+duration*.6);overtone.connect(g);g.connect(this.master);overtone.start(t);overtone.stop(t+duration);
  }
+ ambience(stage){
+  if(!this.ctx)return;const ctx=this.ctx;
+  if(!this.wind){const b=ctx.createBuffer(1,ctx.sampleRate*4,ctx.sampleRate),d=b.getChannelData(0);let v=0;for(let i=0;i<d.length;i++){v=(v+Math.random()*.04-.02)*.985;d[i]=v;}const source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();source.buffer=b;source.loop=true;filter.type='lowpass';filter.frequency.value=650;source.connect(filter);filter.connect(gain);gain.connect(this.master);gain.gain.value=0;source.start();this.wind={gain,filter};}
+  this.wind.gain.gain.setTargetAtTime(stage==='pirate'?.28:stage==='castle'?.12:0,ctx.currentTime,1.3);this.wind.filter.frequency.setTargetAtTime(stage==='pirate'?900:450,ctx.currentTime,1.3);
+ }
+ clash(success=true){
+  if(!this.ctx)return;const ctx=this.ctx,t=ctx.currentTime,b=ctx.createBuffer(1,Math.floor(ctx.sampleRate*.18),ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(ctx.sampleRate*.025));const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),g=ctx.createGain();src.buffer=b;filter.type='highpass';filter.frequency.value=1400;g.gain.value=.25;src.connect(filter);filter.connect(g);g.connect(this.master);src.start(t);this.tone(success?1760:1174,.3,0,.09);this.tone(success?2637:1568,.21,.01,.055);
+ }
  bell(id,correct){this.tone({sun:293.665,wave:349.228,moon:440}[id]||293.665,1.8,0,correct?.24:.13);}
  reward(){[293.665,349.228,440,587.33].forEach((f,i)=>this.tone(f,1.2,i*.11,.14));}
  shoot(){this.tone(150,.12,0,.09);this.tone(600,.08,.01,.05);}
