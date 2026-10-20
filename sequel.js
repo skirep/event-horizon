@@ -25,3 +25,12 @@ export function sequelInteract(j,id){
 }
 export function chooseReply(j,index){if(j.duelPhase!=='reply'||![0,1,2].includes(index))return false;const q=INSULTS[j.duelRound%INSULTS.length];if(optionsFor(j.duelRound)[index]!==q.reply){j.duelLife--;j.emit('duelHit');j.say('SALMORRA: La resposta era: «'+q.reply+'» Torna-ho a intentar.');j.duelPhase='idle';j.duelRound++;if(j.duelLife<=0){j.duelLife=3;j.say('SALMORRA: Respirarem una mica. Conserves els intercanvis guanyats. Torna quan tinguis una rèplica més esmolada.');}return false;}j.duelPhase='parry';j.say('Bona rèplica. Ara observa l’espasa: PARA quan el senyal sigui daurat. E, ACCIÓ o gallet.');j.emit('parryReady');return true;}
 export function resolveParry(j,success){if(j.duelPhase!=='parry')return false;j.duelPhase='idle';j.duelRound++;if(success){j.duelWins++;j.emit('parryWin');j.say(j.duelWins>=3?'SALMORRA: Touché! El timó és teu. Porta la carta fins a la roda i marca el rumb.':'SALMORRA: Aquesta l’has guanyada. Però encara em queden paraules! '+j.duelWins+' de 3 intercanvis.');}else{j.duelLife--;j.emit('duelHit');j.say('SALMORRA: Has parat fora de temps. Espera que el senyal sigui daurat. Torna a desafiar-me.');if(j.duelLife<=0)j.duelLife=3;}return success;}
+
+/** A telegraph must actually be displayed before its response window can expire.
+ * The initial target follows the score; slow rendering never skips the gold cue.
+ */
+export class ParryWindow{
+ constructor(target){this.target=target;this.opened=null;this.until=0;this.shown=false;}
+ frame(now){if(this.opened===null&&now>=this.target-.62){this.opened=now;this.until=now+1.8;}this.shown=this.opened!==null&&now<=this.until;return {ready:this.shown,expired:this.opened!==null&&now>this.until+.35,progress:this.opened===null?Math.max(0,Math.min(.46,(now-this.target+2)/2*.46)):.46+Math.min(1,(now-this.opened)/1.8)*.41};}
+ accept(now){return this.shown&&now<=this.until+.35;}
+}

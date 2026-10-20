@@ -2,7 +2,7 @@ import * as T from './three.module.js';
 import {Journey,mazePath,STAGES} from './journey.js';
 import {village,forest,space,cockpit,sky,label,ring,sphere,glow,toWorld,toCell,TILE} from './worlds.js';
 import {castle,pirate,loadSequelAssets,sequelEnvironment,sequelBackdrop} from './sequel-worlds.js';
-import {INSULTS,optionsFor,resolveParry} from './sequel.js';
+import {INSULTS,optionsFor,resolveParry,ParryWindow} from './sequel.js';
 import {Soundtrack} from './music.js';
 const $=s=>document.querySelector(s),canvas=$('#world'),score=new Soundtrack(),game=new Journey();
 const CHAPTERS={village:['ACTE I · LA PLAÇA SENSE SEGON','La plaça sense segon','La clau obre una escletxa en el mateix instant.'],maze:['ACTE II · ELS FILS DEL BOSC','El segon, per dins','La plaça s’ha convertit en un bosc. La clau encara és amb tu.'],flight:['ACTE III · VECTOR DE RETORN','A l’altra banda','El nucli alimenta la Falcon. El camí de tornada s’ha de pilotar.'],castle:['PART II · EL CASTELL DE LES MAREES','La pedra recorda','La clau del rellotge també és la clau d’aquest castell.'],pirate:['PART II · LA LLENGUA I L’ACER','La capitana Salmorra','Una carta de marees. Un vaixell sense rumb. Tres intercanvis per guanyar-te el timó.'],home:['EPÍLEG · UN SEGON SENCER','El retorn','La mateixa plaça. Una última cosa per fer.']};
@@ -89,7 +89,7 @@ function processEvents(){while(game.events.length){const e=game.events.shift();
  if(e.type==='dial'){world.updateDials();score.bell('sun',true);save();}
  if(e.type==='chart'){score.reward();toast('CARTA DE MAREES OBTINGUDA');save();}
  if(e.type==='duel'){syncDuel();}
- if(e.type==='parryReady'){parryAt=score.ctx?score.nextBar()+120/116:time+2;world.striking=true;syncDuel();}
+ if(e.type==='parryReady'){parryAt=score.ctx?score.nextBar()+120/116:time+2;parryWindow=new ParryWindow(parryAt);world.striking=true;syncDuel();}
  if(e.type==='duelHit'){score.clash(false);world.striking=false;syncDuel();save();}
  if(e.type==='parryWin'){score.clash(true);score.reward();burst(new T.Vector3(0,1.6,-2),'#ffe4ad',18);world.striking=false;syncDuel();save();}
  if(e.type==='stage')changeWorld(e.stage);
@@ -149,7 +149,7 @@ function shoot(){
  if(hit){end.copy(hit.position);hit.visible=false;burst(end,'#ffc898',24);score.hit();}
  const geometry=new T.BufferGeometry().setFromPoints([origin,end]);const beam=new T.Line(geometry,new T.LineBasicMaterial({color:'#9ff7ee',transparent:true,opacity:1}));scene.add(beam);beams.push({beam,life:.13});
 }
-let parryAt=0;
+let parryAt=0,parryWindow=null;
 const duelClock=()=>score.ctx?score.ctx.currentTime:time;
 function syncDuel(){
  $('#parry').dataset.ready='false';$('#parry').textContent='ESPERA EL SENYAL DAURAT';
@@ -161,19 +161,19 @@ function syncDuel(){
  if(game.duelPhase==='reply'){rig.position.set(0,0,1);targetYaw=yaw=0;targetPitch=pitch=0;autoPath=[];optionsFor(game.duelRound).forEach((text,i)=>{const b=document.createElement('button');b.textContent=(i+1)+'. '+text;b.dataset.reply=i;b.onclick=()=>{if(paused||busy)return;game.interact('reply'+i);processEvents();};list.append(b);});}
  world.updateReplies(renderer.xr.isPresenting);updateVrHud();
 }
-function attemptParry(){if(paused||busy||game.duelPhase!=='parry')return;resolveParry(game,Math.abs(duelClock()-parryAt)<.62);processEvents();}
+function attemptParry(){if(paused||busy||game.duelPhase!=='parry')return;resolveParry(game,!!parryWindow?.accept(duelClock()));processEvents();}
 $('#parry').addEventListener('pointerdown',e=>{e.preventDefault();attemptParry();});$('#parry').addEventListener('click',e=>{if(e.detail===0)attemptParry();});
 function animateDuel(){
  const phase=game.duelPhase;for(const i of world.interactables.filter(o=>o.id.startsWith('reply')))i.node.visible=phase==='reply'&&renderer.xr.isPresenting;world.playerSword.visible=phase!=='idle';
  if(phase==='parry'){
-  const delta=duelClock()-parryAt,ready=Math.abs(delta)<.62;
+  const now=duelClock(),state=parryWindow.frame(now),ready=state.ready,delta=ready?(now-parryWindow.opened)/1.8*1.3-.7:Math.min(-.7,now-parryAt);
   $('#parry').dataset.ready=String(ready);$('#parry').textContent=ready?'ARA · PARA L’ESPASA!':'ESPERA EL SENYAL DAURAT';
-  $('#parry-needle').style.left=Math.max(0,Math.min(100,(delta+2)/3*100))+'%';
+  $('#parry-needle').style.left=Math.max(0,Math.min(100,state.progress*100))+'%';
   world.enemySword.rotation.x=-.9+Math.max(0,Math.min(1,(delta+.7)/1.3))*2.1;
   world.enemySword.rotation.z=Math.sin(delta*3)*.3;
   world.playerSword.rotation.z=ready?-.85:.25;world.playerSword.rotation.x=ready?-.5:.15;
   if(renderer.xr.isPresenting){$('#duel').hidden=true;world.replySigns.forEach(o=>o.visible=false);const guide=world.playerSword.children[0];guide.material.emissive.set(ready?'#cda74e':'#000000');guide.material.emissiveIntensity=ready?.8:0;}
-  if(delta>.85){resolveParry(game,false);processEvents();}
+  if(state.expired){resolveParry(game,false);processEvents();}
  }
 }
 function pressAction(){if(!playing||paused||busy)return;if(activeStage==='pirate'&&game.duelPhase==='parry'){attemptParry();return;}actionHeld=true;if(activeStage==='flight')shoot();else if(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))>3.3){walkTo(activeTarget);actionHeld=false;}else if(activeTarget?.kind!=='hold')interact();}
@@ -271,7 +271,7 @@ renderer.setAnimationLoop(ms=>{
  if(selectedController&&renderer.xr.isPresenting){const p=new T.Vector3(),q=new T.Quaternion();selectedController.getWorldPosition(p);selectedController.getWorldQuaternion(q);activeTarget=findTarget(new T.Ray(p,new T.Vector3(0,0,-1).applyQuaternion(q)));}else activeTarget=findTarget();
  if(actionHeld&&activeTarget?.kind==='hold'&&rig.position.distanceTo(targetPosition(activeTarget))<3.3){if(chargeStarted===null)chargeStarted=performance.now();actionTime=(performance.now()-chargeStarted)/1000;$('#charge-ring').style.strokeDashoffset=289*(1-Math.min(1,actionTime/1.35));fill.intensity=25+actionTime*60;if(actionTime>=1.35){interact(activeTarget);releaseAction();}}else{actionTime=0;chargeStarted=null;fill.intensity=25;}
  }
- const ready=(activeStage==='pirate'&&game.duelPhase==='parry'&&Math.abs(duelClock()-parryAt)<.62)||activeStage==='flight'||!!(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))<=3.3&&canSee(activeTarget));$('#action').dataset.ready=String(ready);
+ const ready=(activeStage==='pirate'&&game.duelPhase==='parry'&&$('#parry').dataset.ready==='true')||activeStage==='flight'||!!(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))<=3.3&&canSee(activeTarget));$('#action').dataset.ready=String(ready);
  if(assisted){for(const b of document.querySelectorAll('#assist-objects button')){const item=world.interactables.find(i=>i.id===b.dataset.object);const available=!!item&&rig.position.distanceTo(targetPosition(item))<=3.3&&canSee(item);b.dataset.ready=String(available);b.title=available?'Activa aquest objecte':'Camina fins a aquest objecte';}}
  $('#target-label').textContent=activeStage==='flight'?'TRAVESSA ELS ANELLS · ACCIÓ DISPARA':activeTarget?(ready?activeTarget.label:'ACOSTA’T · '+activeTarget.label):'';
  $('#action-label').textContent=game.duelPhase==='parry'?'PARA!':activeStage==='flight'?'DISPARA':activeTarget&&!ready?'ACOSTA’T':activeTarget?.kind==='hold'?'MANTÉN':'ACCIÓ';$('#aim').classList.toggle('ready',!!activeTarget);
