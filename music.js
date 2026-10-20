@@ -2,7 +2,9 @@ const CUES=[
  {file:'cue-0.mp3',bpm:90,bars:24,title:'La plaça sense segon'},
  {file:'cue-1.mp3',bpm:100,bars:24,title:'Els fils del bosc'},
  {file:'cue-2.mp3',bpm:120,bars:32,title:'Vector de retorn'},
- {file:'cue-3.mp3',bpm:80,bars:16,title:'Un segon sencer'}
+ {file:'cue-3.mp3',bpm:80,bars:16,title:'Un segon sencer'},
+ {file:'cue-4.mp3',bpm:92,bars:24,title:'El castell de les Marees'},
+ {file:'cue-5.mp3',bpm:116,bars:32,title:'La llengua i l’acer'}
 ];
 /** Sample-rendered original soundtrack. AudioContext is the sole beat clock. */
 export class Soundtrack{
@@ -13,7 +15,7 @@ export class Soundtrack{
   if(!this.loading.has(index)){const promise=fetch('./assets/audio/'+CUES[index].file).then(r=>{if(!r.ok)throw Error('BSO '+r.status);return r.arrayBuffer();}).then(b=>this.ctx.decodeAudioData(b)).then(buffer=>{this.buffers.set(index,buffer);return buffer;}).catch(e=>{this.loading.delete(index);throw e;});this.loading.set(index,promise);}
   return this.loading.get(index);
  }
- async start(index=0){await this.prepare(index);await this.ctx.resume();this.change(index,this.ctx.currentTime+.08,true);this.ready=true;for(let i=0;i<4;i++)if(i!==index)this.prepare(i).catch(()=>{});}
+ async start(index=0){await this.prepare(index);await this.ctx.resume();this.change(index,this.ctx.currentTime+.08,true);this.ready=true;for(let i=0;i<CUES.length;i++)if(i!==index)this.prepare(i).catch(()=>{});}
  nextBar(){if(!this.ctx||!this.playing)return 0;const {index,epoch}=this.active();const bar=240/CUES[index].bpm;return epoch+(Math.floor((this.ctx.currentTime-epoch)/bar)+1)*bar;}
  active(){if(this.pending&&this.ctx.currentTime>=this.pending.epoch){this.cue=this.pending.index;this.epoch=this.pending.epoch;this.pending=null;}return this.pending&&this.ctx.currentTime<this.pending.epoch?{index:this.cue,epoch:this.epoch}:{index:this.cue,epoch:this.epoch};}
  change(index,when,immediate=false){

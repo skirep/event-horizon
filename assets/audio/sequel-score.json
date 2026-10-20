@@ -1,0 +1,16 @@
+[
+  {
+    "file": "cue-4.mp3",
+    "bpm": 92,
+    "bars": 24,
+    "title": "El castell de les Marees",
+    "duration": 65.609
+  },
+  {
+    "file": "cue-5.mp3",
+    "bpm": 116,
+    "bars": 32,
+    "title": "La llengua i l’acer",
+    "duration": 69.207
+  }
+]

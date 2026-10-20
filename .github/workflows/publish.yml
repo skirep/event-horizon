@@ -39,8 +39,8 @@ jobs:
       - name: Package offline web experience
         run: |
           mkdir -p dist/assets
-          cp index.html app.js music.js worlds.js journey.js style.css three.module.js manifest.webmanifest sw.js dist/
-          cp -r assets/audio dist/assets/
+          cp index.html app.js music.js worlds.js journey.js sequel.js sequel-worlds.js RGBELoader.js style.css three.module.js manifest.webmanifest sw.js dist/
+          cp -r assets/* dist/assets/
           touch dist/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
@@ -74,8 +74,8 @@ jobs:
       - name: Package assets including rendered original score
         run: |
           mkdir -p android/app/src/main/assets/assets
-          cp index.html app.js music.js worlds.js journey.js style.css three.module.js manifest.webmanifest sw.js android/app/src/main/assets/
-          cp -r assets/audio android/app/src/main/assets/assets/
+          cp index.html app.js music.js worlds.js journey.js sequel.js sequel-worlds.js RGBELoader.js style.css three.module.js manifest.webmanifest sw.js android/app/src/main/assets/
+          cp -r assets/* android/app/src/main/assets/assets/
       - name: Build mobile and Quest APKs
         working-directory: android
         run: gradle assembleMobileDebug assembleQuestDebug --no-daemon

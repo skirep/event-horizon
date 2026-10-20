@@ -1,9 +1,11 @@
 import * as T from './three.module.js';
 import {Journey,mazePath,STAGES} from './journey.js';
 import {village,forest,space,cockpit,sky,label,ring,sphere,glow,toWorld,toCell,TILE} from './worlds.js';
+import {castle,pirate,loadSequelAssets,sequelEnvironment} from './sequel-worlds.js';
+import {INSULTS,optionsFor,resolveParry} from './sequel.js';
 import {Soundtrack} from './music.js';
 const $=s=>document.querySelector(s),canvas=$('#world'),score=new Soundtrack(),game=new Journey();
-const CHAPTERS={village:['ACTE I · LA PLAÇA SENSE SEGON','La plaça sense segon','La clau obre una escletxa en el mateix instant.'],maze:['ACTE II · ELS FILS DEL BOSC','El segon, per dins','La plaça s’ha convertit en un bosc. La clau encara és amb tu.'],flight:['ACTE III · VECTOR DE RETORN','A l’altra banda','El nucli alimenta la Falcon. El camí de tornada s’ha de pilotar.'],home:['EPÍLEG · UN SEGON SENCER','El retorn','La mateixa plaça. Una última cosa per fer.']};
+const CHAPTERS={village:['ACTE I · LA PLAÇA SENSE SEGON','La plaça sense segon','La clau obre una escletxa en el mateix instant.'],maze:['ACTE II · ELS FILS DEL BOSC','El segon, per dins','La plaça s’ha convertit en un bosc. La clau encara és amb tu.'],flight:['ACTE III · VECTOR DE RETORN','A l’altra banda','El nucli alimenta la Falcon. El camí de tornada s’ha de pilotar.'],castle:['PART II · EL CASTELL DE LES MAREES','La pedra recorda','La clau del rellotge també és la clau d’aquest castell.'],pirate:['PART II · LA LLENGUA I L’ACER','La capitana Salmorra','Una carta de marees. Un vaixell sense rumb. Tres intercanvis per guanyar-te el timó.'],home:['EPÍLEG · UN SEGON SENCER','El retorn','La mateixa plaça. Una última cosa per fer.']};
 let renderer;
 try{renderer=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});}catch(e){$('#graphics-error').hidden=false;$('#retry').onclick=()=>location.reload();throw e;}
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);
@@ -22,19 +24,21 @@ const bursts=[],beams=[],raycaster=new T.Raycaster(),pointer=new T.Vector2(),tmp
 const cache=new Map();let world,activeStage='village',playing=false,paused=false,busy=false,finish=false,time=0,previous=0,yaw=0,pitch=0,targetYaw=0,targetPitch=0,gyro=false;
 let movement={x:0,y:0},keys=new Set(),autoPath=[],actionHeld=false,actionTime=0,chargeStarted=null,activeTarget=null,lastShot=0,flightZ=0,snapTime=0,hintUntil=0,selectedController=null;
 let assisted=false;let slowFrames=0,qualityLevel=0;let screenTimer,toastTimer,reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches,checkpointData=null;
-try{const raw=localStorage.getItem('event-horizon-journey-v2');if(raw){const j=new Journey();const data=JSON.parse(raw);if(j.restore(data)&&!j.completed){checkpointData=data;$('#continue').hidden=false;}}}catch{}
+try{const raw=localStorage.getItem('event-horizon-journey-v2');if(raw){const j=new Journey();const data=JSON.parse(raw);if(j.restore(data)&&!j.sequelComplete){checkpointData=data;$('#continue').hidden=false;}}}catch{}
 function save(){try{localStorage.setItem('event-horizon-journey-v2',JSON.stringify(game.save()));}catch{}}
 function toast(s){$('#toast').textContent=s;$('#toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('on'),3300);}
-function getWorld(stage){const key=stage==='home'?'village':stage;if(!cache.has(key)){const w=key==='village'?village():key==='maze'?forest(game):space();w.group.traverse(o=>{if(o.isMesh){o.receiveShadow=true;o.castShadow=!(o.geometry.type==='CircleGeometry'||o.material.transparent);}});cache.set(key,w);scene.add(w.group);}return cache.get(key);}
+function getWorld(stage){const key=stage==='home'?'village':stage;if(!cache.has(key)){const w=key==='village'?village():key==='maze'?forest(game):key==='castle'?castle(game):key==='pirate'?pirate(game):space();w.group.traverse(o=>{if(o.isMesh){o.receiveShadow=true;o.castShadow=!(o.geometry.type==='CircleGeometry'||o.material.transparent);}});cache.set(key,w);scene.add(w.group);}return cache.get(key);}
 function enterWorld(stage){
  activeStage=stage;world=getWorld(stage);for(const w of cache.values())w.group.visible=w===world;
- scene.fog=new T.FogExp2(stage==='village'?'#bac8b9':stage==='maze'?'#244b49':stage==='home'?'#314654':'#080e21',world.fog);
+ scene.environment=['castle','pirate'].includes(stage)?sequelEnvironment():null;
+ scene.fog=new T.FogExp2(stage==='castle'?'#c5c7b4':stage==='pirate'?'#b3c4be':stage==='village'?'#bac8b9':stage==='maze'?'#244b49':stage==='home'?'#314654':'#080e21',world.fog);
  if(stage==='home'){rig.position.set(0,0,8);world.portal.active=false;}else rig.position.copy(world.spawn);
  camera.position.set(0,1.7,0);rig.rotation.set(0,0,0);targetYaw=yaw=world.yaw||0;targetPitch=pitch=0;
  if(stage==='flight'){ship.visible=true;flightZ=0;positionGate(game.gates);$('#flight-status').hidden=false;$('.map-wrap').hidden=true;}else{ship.visible=false;$('#flight-status').hidden=true;$('.map-wrap').hidden=false;}
  autoPath=[];actionTime=0;routeLine.visible=false;heldKey.visible=game.key&&stage!=='flight';if(game.core){artifact.material.color.set('#8eebe6');artifact.material.emissive.set('#8eebe6');}heldKey.position.set(.37,1.35,-1);
- ambient.intensity=stage==='village'?.9:stage==='maze'?1.25:stage==='home'?.8:1.2;sunlight.intensity=stage==='village'?3.6:stage==='home'?1.2:stage==='maze'?1.6:.6;
- sunlight.color.set(stage==='village'?'#ffe0b1':stage==='maze'?'#b9e6d0':'#aac6ee');
+ ambient.intensity=['castle','pirate'].includes(stage)?.7:stage==='village'?.9:stage==='maze'?1.25:stage==='home'?.8:1.2;sunlight.intensity=['castle','pirate'].includes(stage)?3.2:stage==='village'?3.6:stage==='home'?1.2:stage==='maze'?1.6:.6;
+ sunlight.color.set(['castle','pirate'].includes(stage)?'#ffe6bd':stage==='village'?'#ffe0b1':stage==='maze'?'#b9e6d0':'#aac6ee');
+ $('#duel').hidden=true;if(stage==='castle')world.updateDials();if(stage==='pirate')world.updateReplies();
  renderer.shadowMap.needsUpdate=true;updateProgress();updateVrHud();rebuildAssist();save();
 }
 function rebuildAssist(){
@@ -42,7 +46,7 @@ function rebuildAssist(){
  if(!assisted||!world)return;
  const list=$('#assist-objects');const names=world.interactables.filter(relevant).map(i=>i.id).join(',');
  if(list.dataset.targets===names)return;list.dataset.targets=names;list.replaceChildren();
- for(const item of world.interactables.filter(relevant)){const b=document.createElement('button');b.textContent=item.id==='portal'?'Portal':item.id==='clock'?'Rellotge':item.id==='core'?'Nucli':item.id.startsWith('relay')?'Fil '+(Number(item.id.slice(-1))+1):{sun:'Sol',wave:'Ona',moon:'Lluna'}[item.id];b.dataset.object=item.id;b.onclick=()=>{activeTarget=item;interact(item);};list.append(b);}
+ for(const item of world.interactables.filter(relevant)){const b=document.createElement('button');b.textContent=item.id==='portal'?'Portal':item.id==='clock'?'Rellotge':item.id==='core'?'Nucli':item.id.startsWith('relay')?'Fil '+(Number(item.id.slice(-1))+1):({sun:'Sol',wave:'Ona',moon:'Lluna',dial0:'Segell · Torre',dial1:'Segell · Port',dial2:'Segell · Mar',chart:'Carta de marees',embark:'Embarca',captain:'Desafia Salmorra',helm:'Pren el timó'})[item.id]||item.label;b.dataset.object=item.id;b.onclick=()=>{activeTarget=item;interact(item);};list.append(b);}
 }
 $('#assist').onclick=()=>{assisted=!assisted;$('#assist').setAttribute('aria-pressed',assisted);$('#assist span').textContent=assisted?'ON':'OFF';$('#assist-objects').dataset.targets='';rebuildAssist();};
 function updateProgress(){
@@ -50,20 +54,24 @@ function updateProgress(){
  $('#key-status').textContent=game.key?'◆ CLAU MERIDIANA':'◇ CLAU ADORMIDA';$('#key-status').classList.toggle('owned',game.key);
  $('#core-status').textContent=game.core?'● NUCLI CONNECTAT':'○ NUCLI ABSENT';$('#core-status').classList.toggle('owned',game.core);
  const st=STAGES.indexOf(game.stage);for(let i=0;i<3;i++){$('#step'+i).classList.toggle('active',i===Math.min(st,2));$('#step'+i).classList.toggle('done',i<st);}
- $('#shield').textContent='ESCUT '+game.shield+'%';$('#gate-count').textContent='ANELL '+Math.min(3,game.gates+1)+' / 3';$('#map-label').textContent=activeStage==='maze'?'ELS FILS · LA CLAU ÉS EL TEU FAR':'LA PLAÇA · N ↑';updateVrHud();
+ $('#shield').textContent='ESCUT '+game.shield+'%';$('#gate-count').textContent='ANELL '+Math.min(3,game.gates+1)+' / 3';$('#map-label').textContent=activeStage==='castle'?'EL CASTELL · PATI D’ARMES':activeStage==='pirate'?'LA SALMORRA · COBERTA':activeStage==='maze'?'ELS FILS · LA CLAU ÉS EL TEU FAR':'LA PLAÇA · N ↑';updateVrHud();
 }
 async function begin(resume=false){
  if(busy||playing)return;busy=true;$('#start').disabled=true;$('#start').textContent='DESPERTANT EL TEMPS…';
  // Resume AudioContext in the same user gesture; decoding can complete afterwards.
  const music=score.start(resume&&checkpointData?STAGES.indexOf(checkpointData.stage):0).catch(()=>toast('La BSO no s’ha pogut carregar. Pots continuar i activar-la després.'));
  if(resume&&checkpointData){game.restore(checkpointData);game.say('ECO: La clau recorda el camí. Continuem des d’on ho vam deixar.');}else game.begin();
+ if(['castle','pirate'].includes(game.stage))await loadSequelAssets(renderer);
  playing=true;document.body.classList.add('playing');$('#intro').hidden=true;$('#hud').hidden=false;enterWorld(game.stage);busy=false;
  processEvents();await music;
 }
+$('#part-two').onclick=()=>beginSequel();$('#next-part').onclick=()=>beginSequel();
+async function beginSequel(){if(busy)return;score.start(4).catch(()=>toast('No s’ha pogut carregar la BSO.'));finish=false;paused=false;playing=true;$('#intro').hidden=true;$('#ending').hidden=true;$('#hud').hidden=false;document.body.classList.add('playing');game.startSequel(true);processEvents();}
 $('#start').onclick=()=>begin(false);$('#continue').onclick=()=>begin(true);
 async function changeWorld(stage){
  if(busy)return;busy=true;autoPath=[];releaseAction();movement={x:0,y:0};keys.clear();
  $('#transition-title').textContent=CHAPTERS[stage][1];$('#transition-caption').textContent=CHAPTERS[stage][2];$('#transition-symbol').textContent=stage==='flight'?'◈':'◇';$('#transition').hidden=false;
+ if(['castle','pirate'].includes(stage)){try{await loadSequelAssets(renderer);}catch{toast('No s’han pogut carregar tots els materials. Torna a entrar per recuperar-los.');}}
  score.whoosh();const cue=STAGES.indexOf(stage);
  try{await score.prepare(cue);}catch{}
  const wait=score.ctx?Math.max(0,score.nextBar()-score.ctx.currentTime):.6;
@@ -77,20 +85,27 @@ function processEvents(){while(game.events.length){const e=game.events.shift();
  if(e.type==='key'){score.reward();getWorld('village').portal.active=true;heldKey.visible=true;toast('CLAU MERIDIANA OBTINGUDA');save();}
  if(e.type==='relay'){score.reward();const item=getWorld('maze').relays[e.index];burst(item.node.position.clone().add(new T.Vector3(0,1.5,0)),'#e7d797',30);save();}
  if(e.type==='core'){score.reward();heldKey.children[0].material.color.set('#8eebe6');heldKey.children[0].material.emissive.set('#8eebe6');toast('EL NUCLI ÉS AMB TU');save();}
+ if(e.type==='dial'){world.updateDials();score.bell('sun',true);save();}
+ if(e.type==='chart'){score.reward();toast('CARTA DE MAREES OBTINGUDA');save();}
+ if(e.type==='duel'){syncDuel();}
+ if(e.type==='parryReady'){parryAt=duelClock()+2+(score.beat===null?0:(1-score.beat%1)*.5);world.striking=true;syncDuel();}
+ if(e.type==='duelHit'){score.hit();world.striking=false;syncDuel();save();}
+ if(e.type==='parryWin'){score.reward();burst(new T.Vector3(0,1.6,-2),'#ffe4ad',18);world.striking=false;syncDuel();save();}
  if(e.type==='stage')changeWorld(e.stage);
  if(e.type==='gate'){score.reward();toast('VECTOR '+e.index+' ESTABILITZAT');save();}
  if(e.type==='damage')score.hit();
  if(e.type==='hint'){showRoute();hintUntil=time+24;}
  if(e.type==='ending'){score.reward();end();}
  }updateProgress();}
-function end(){finish=true;save();setTimeout(()=>{$('#ending').hidden=false;$('#hud').hidden=true;$('#ending-stats').textContent='3 FILS RECONNECTATS  ·  3 VECTORS ESTABILITZATS  ·  '+Math.max(1,Math.round(game.elapsed/60))+' MINUTS DE VIATGE';},1600);}
+function end(){finish=true;$('#duel').hidden=true;$('#next-part').hidden=game.sequelComplete;if(game.sequelComplete){$('#ending .kicker').textContent='HAS GUANYAT EL RUMB, A COP D’ENGINY';$('#ending h1').innerHTML='El mar no oblida.<br><em>Tu tampoc.</em>';$('#ending p').textContent='Una clau, un castell i una capitana amb massa paraules. La carta de marees continua més enllà de l’horitzó.';$('#ending small').textContent='FI DE LA SEGONA PART · BON VENT.';} save();setTimeout(()=>{$('#ending').hidden=false;$('#hud').hidden=true;$('#ending-stats').textContent=(game.sequelComplete?'CASTELL DESXIFRAT · 3 INTERCANVIS GUANYATS · ':'3 FILS RECONNECTATS · 3 VECTORS ESTABILITZATS · ')+Math.max(1,Math.round(game.elapsed/60))+' MINUTS DE VIATGE';},1600);}
 function burst(pos,color,n=24){const positions=[],vel=[];for(let i=0;i<n;i++){positions.push(pos.x,pos.y,pos.z);vel.push((Math.random()-.5)*3,Math.random()*2+.3,(Math.random()-.5)*3);}const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));const m=new T.PointsMaterial({color,size:.08,transparent:true,opacity:1,blending:T.AdditiveBlending,depthWrite:false});const points=new T.Points(g,m);scene.add(points);bursts.push({points,vel,life:1.6});}
 function freeAt(x,z){
+ if(world?.deckBoundary&&Math.abs(x)>Math.min(4.35,5.3*Math.pow(Math.max(.015,Math.cos(z/34*Math.PI)),.42)-.5))return false;
  if(Math.abs(x)>(world?.bounds||43)||Math.abs(z)>(world?.bounds||43))return false;
  return !world.colliders.some(c=>Math.abs(x-c.x)<c.hx+.22&&Math.abs(z-c.z)<c.hz+.22);
 }
 function moveBy(dx,dz){const step=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.18));for(let i=0;i<step;i++){if(freeAt(rig.position.x+dx/step,rig.position.z))rig.position.x+=dx/step;if(freeAt(rig.position.x,rig.position.z+dz/step))rig.position.z+=dz/step;}}
-function relevant(item){if(activeStage==='village')return game.key?item.id==='portal':['sun','wave','moon'].includes(item.id);if(activeStage==='home')return item.id==='clock';if(activeStage==='maze'){if(item.id.startsWith('relay'))return !game.relays.includes(Number(item.id.slice(-1)));if(item.id==='core')return game.relays.length===3&&!game.core;if(item.id==='portal')return game.core;}return false;}
+function relevant(item){if(activeStage==='castle')return game.chart?item.id==='embark':item.id.startsWith('dial')||item.id==='chart';if(activeStage==='pirate')return game.duelWins>=3?item.id==='helm':game.duelPhase==='reply'?item.id.startsWith('reply'):game.duelPhase==='idle'&&item.id==='captain';if(activeStage==='village')return game.key?item.id==='portal':['sun','wave','moon'].includes(item.id);if(activeStage==='home')return item.id==='clock';if(activeStage==='maze'){if(item.id.startsWith('relay'))return !game.relays.includes(Number(item.id.slice(-1)));if(item.id==='core')return game.relays.length===3&&!game.core;if(item.id==='portal')return game.core;}return false;}
 function targetPosition(item){const p=item.node.getWorldPosition(new T.Vector3());p.y=0;return p;}
 function canSee(item){
  const p=targetPosition(item),dx=p.x-rig.position.x,dz=p.z-rig.position.z,d=Math.hypot(dx,dz),steps=Math.ceil(d/.2);
@@ -132,7 +147,33 @@ function shoot(){
  if(hit){end.copy(hit.position);hit.visible=false;burst(end,'#ffc898',24);score.hit();}
  const geometry=new T.BufferGeometry().setFromPoints([origin,end]);const beam=new T.Line(geometry,new T.LineBasicMaterial({color:'#9ff7ee',transparent:true,opacity:1}));scene.add(beam);beams.push({beam,life:.13});
 }
-function pressAction(){if(!playing||paused||busy)return;actionHeld=true;if(activeStage==='flight')shoot();else if(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))>3.3){walkTo(activeTarget);actionHeld=false;}else if(activeTarget?.kind!=='hold')interact();}
+let parryAt=0;
+const duelClock=()=>score.ctx?score.ctx.currentTime:time;
+function syncDuel(){
+ const panel=$('#duel');panel.hidden=activeStage!=='pirate'||game.duelPhase==='idle';
+ $('#duel-insult').textContent=INSULTS[game.duelRound%INSULTS.length].attack;
+ $('#duel-score').textContent='ENGINY '+game.duelWins+'/3 · TEMPLE '+game.duelLife+'/3';
+ $('#duel-answers').hidden=game.duelPhase!=='reply';$('#parry-zone').hidden=game.duelPhase!=='parry';
+ const list=$('#duel-answers');list.replaceChildren();
+ if(game.duelPhase==='reply'){rig.position.set(0,0,1);targetYaw=yaw=0;targetPitch=pitch=0;autoPath=[];optionsFor(game.duelRound).forEach((text,i)=>{const b=document.createElement('button');b.textContent=(i+1)+'. '+text;b.dataset.reply=i;b.onclick=()=>{if(paused||busy)return;game.interact('reply'+i);processEvents();};list.append(b);});}
+ world.updateReplies();updateVrHud();
+}
+function attemptParry(){if(paused||busy||game.duelPhase!=='parry')return;resolveParry(game,Math.abs(duelClock()-parryAt)<.62);processEvents();}
+$('#parry').onclick=attemptParry;
+function animateDuel(){
+ const phase=game.duelPhase;world.playerSword.visible=phase!=='idle';
+ if(phase==='parry'){
+  const delta=duelClock()-parryAt,ready=Math.abs(delta)<.62;
+  $('#parry').dataset.ready=String(ready);$('#parry').textContent=ready?'ARA · PARA L’ESPASA!':'ESPERA EL SENYAL DAURAT';
+  $('#parry-needle').style.left=Math.max(0,Math.min(100,(delta+2)/3*100))+'%';
+  world.enemySword.rotation.x=-.9+Math.max(0,Math.min(1,(delta+.7)/1.3))*2.1;
+  world.enemySword.rotation.z=Math.sin(delta*3)*.3;
+  world.playerSword.rotation.z=ready?-.85:.25;world.playerSword.rotation.x=ready?-.5:.15;
+  if(renderer.xr.isPresenting){$('#duel').hidden=true;world.replySigns.forEach(o=>o.visible=false);const guide=world.playerSword.children[0];guide.material.emissive.set(ready?'#cda74e':'#000000');guide.material.emissiveIntensity=ready?.8:0;}
+  if(delta>.85){resolveParry(game,false);processEvents();}
+ }
+}
+function pressAction(){if(!playing||paused||busy)return;if(activeStage==='pirate'&&game.duelPhase==='parry'){attemptParry();return;}actionHeld=true;if(activeStage==='flight')shoot();else if(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))>3.3){walkTo(activeTarget);actionHeld=false;}else if(activeTarget?.kind!=='hold')interact();}
 function releaseAction(){actionHeld=false;actionTime=0;chargeStarted=null;$('#charge-ring').style.strokeDashoffset=289;}
 $('#action').addEventListener('pointerdown',e=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);pressAction();});$('#action').addEventListener('pointerup',releaseAction);$('#action').addEventListener('pointercancel',releaseAction);
 $('#hint').onclick=()=>{game.hint();processEvents();};
@@ -173,7 +214,7 @@ const pad=$('#move-pad');let padId=null;
 pad.addEventListener('pointerdown',e=>{if(paused||busy)return;padId=e.pointerId;pad.setPointerCapture(e.pointerId);padMove(e);});
 function padMove(e){if(e.pointerId!==padId)return;const r=pad.getBoundingClientRect(),max=r.width*.35;let x=e.clientX-r.left-r.width/2,y=e.clientY-r.top-r.height/2,d=Math.hypot(x,y);if(d>max){x*=max/d;y*=max/d;}movement={x:x/max,y:y/max};$('#stick').style.transform='translate('+x+'px,'+y+'px)';autoPath=[];}
 pad.addEventListener('pointermove',padMove);function padUp(){padId=null;movement={x:0,y:0};$('#stick').style.transform='';}pad.addEventListener('pointerup',padUp);pad.addEventListener('pointercancel',padUp);
-window.addEventListener('keydown',e=>{if(e.target instanceof HTMLInputElement)return;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Escape'){if(playing)togglePause();return;}if(e.code==='KeyH'&&!e.repeat){game.hint();processEvents();}if(['KeyE','Space'].includes(e.code)&&!e.repeat)pressAction();keys.add(e.code);});
+window.addEventListener('keydown',e=>{if(e.target instanceof HTMLInputElement)return;if(activeStage==='pirate'&&game.duelPhase==='reply'&&['Digit1','Digit2','Digit3'].includes(e.code)&&!paused&&!busy){game.interact('reply'+(+e.code.at(-1)-1));processEvents();return;}if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Escape'){if(playing)togglePause();return;}if(e.code==='KeyH'&&!e.repeat){game.hint();processEvents();}if(['KeyE','Space'].includes(e.code)&&!e.repeat)pressAction();keys.add(e.code);});
 window.addEventListener('keyup',e=>{keys.delete(e.code);if(['KeyE','Space'].includes(e.code))releaseAction();});
 function clearInput(){keys.clear();padUp();releaseAction();drag=null;autoPath=[];}
 window.addEventListener('blur',()=>{clearInput();if(playing&&!paused&&!busy&&!renderer.xr.isPresenting&&!finish)togglePause();});
@@ -193,7 +234,7 @@ const vrHud=new T.Sprite(new T.SpriteMaterial({map:vrTexture,transparent:true,de
 function updateVrHud(){const c=vrHudCanvas.getContext('2d');c.clearRect(0,0,1024,256);c.fillStyle='#0d2130cc';c.fillRect(0,0,1024,256);c.textAlign='center';c.fillStyle='#f3d6a3';c.font='600 24px sans-serif';c.fillText(game.objective().toUpperCase(),512,50);c.fillStyle='#e0eae1';c.font='23px sans-serif';const words=game.message.split(' ');let line='',row=0;for(const word of words){if((line+' '+word).length>66){c.fillText(line,512,100+row*32);row++;line=word;}else line+=' '+word;}if(row<4)c.fillText(line,512,100+row*32);c.fillStyle='#95cbc5';c.font='18px sans-serif';c.fillText('GATELL: ACCIÓ / TELEPORT    GRIP: CARREGA    JOYSTICK: MOU / GIRA',512,238);vrTexture.needsUpdate=true;}
 const controllers=[];
 for(let i=0;i<2;i++){const control=renderer.xr.getController(i);controllers.push(control);rig.add(control);const g=new T.BufferGeometry().setFromPoints([new T.Vector3(),new T.Vector3(0,0,-8)]),laser=new T.Line(g,new T.LineBasicMaterial({color:'#cdece5',transparent:true,opacity:.45}));control.add(laser);
- control.addEventListener('selectstart',()=>{selectedController=control;const pos=new T.Vector3(),q=new T.Quaternion();control.getWorldPosition(pos);control.getWorldQuaternion(q);const dir=new T.Vector3(0,0,-1).applyQuaternion(q);activeTarget=findTarget(new T.Ray(pos,dir));if(activeTarget||activeStage==='flight'){pressAction();return;}
+ control.addEventListener('selectstart',()=>{selectedController=control;const pos=new T.Vector3(),q=new T.Quaternion();control.getWorldPosition(pos);control.getWorldQuaternion(q);const dir=new T.Vector3(0,0,-1).applyQuaternion(q);activeTarget=findTarget(new T.Ray(pos,dir));if(activeTarget||activeStage==='flight'||game.duelPhase==='parry'){pressAction();return;}
  if(dir.y<-.1){const distance=-pos.y/dir.y;if(distance>0&&distance<20){const end=pos.clone().addScaledVector(dir,distance);if(activeStage==='maze'){const cell=toCell(end.x,end.z),start=toCell(rig.position.x,rig.position.z);if(mazePath(game.maze,start,cell).length){const p=toWorld(...cell);rig.position.x=p.x;rig.position.z=p.z;}}else if(freeAt(end.x,end.z)){rig.position.x=end.x;rig.position.z=end.z;}score.tone(440,.15,0,.06);}}
  });
  control.addEventListener('selectend',()=>{releaseAction();selectedController=null;});control.addEventListener('squeezestart',()=>{selectedController=control;pressAction();});control.addEventListener('squeezeend',releaseAction);
@@ -215,20 +256,22 @@ renderer.setAnimationLoop(ms=>{
  if(heldKey.visible){heldKey.rotation.y=time*.35;artifactRing.rotation.x=time*.4;artifact.material.emissiveIntensity=.8+pulse*.8;}
  if(world===cache.get('village')){world.portal.active=game.key&&activeStage!=='home';world.clockHands.forEach((h,i)=>{h.rotation.z=game.completed?time*(i?-.14:-.02):i?-.7:0;});world.bells.forEach(b=>{if(b.kick!=null){const since=time-b.kick;b.bell.rotation.z=Math.sin(since*17)*Math.exp(-since*2)*.24;if(since>3)b.kick=null;}});}
  if(playing&&!paused&&!busy&&!finish){
+ if(activeStage==='pirate')animateDuel();
  if(renderer.xr.isPresenting)xrInput(dt);
  else if(gyro)camera.quaternion.slerp(gyroQuaternion,.18);else{yaw=T.MathUtils.damp(yaw,targetYaw,12,dt);pitch=T.MathUtils.damp(pitch,targetPitch,12,dt);camera.rotation.set(pitch,yaw,0,'YXZ');}
  if(activeStage==='flight')flight(dt);else{
  let mx=movement.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),my=movement.y-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0);
+ if(game.duelPhase!=='idle'&&activeStage==='pirate'){mx=my=0;autoPath=[];}
  if(mx||my){autoPath=[];const forward=new T.Vector3();camera.getWorldDirection(forward);forward.y=0;forward.normalize();const right=new T.Vector3(-forward.z,0,forward.x);const d=forward.multiplyScalar(-my).addScaledVector(right,mx);if(d.length()>1)d.normalize();moveBy(d.x*dt*4.2,d.z*dt*4.2);}
  else if(autoPath.length){const p=autoPath[0],d=p.clone().sub(rig.position);d.y=0;const dist=d.length();if(dist<(autoPath.length===1?1.9:.13))autoPath.shift();else{d.normalize();const before=rig.position.clone();moveBy(d.x*Math.min(dist,dt*3.8),d.z*Math.min(dist,dt*3.8));if(before.distanceTo(rig.position)<.001)autoPath=[];if(!gyro&&!renderer.xr.isPresenting)targetYaw=Math.atan2(-d.x,-d.z);}}
  scene.updateMatrixWorld(true);
  if(selectedController&&renderer.xr.isPresenting){const p=new T.Vector3(),q=new T.Quaternion();selectedController.getWorldPosition(p);selectedController.getWorldQuaternion(q);activeTarget=findTarget(new T.Ray(p,new T.Vector3(0,0,-1).applyQuaternion(q)));}else activeTarget=findTarget();
  if(actionHeld&&activeTarget?.kind==='hold'&&rig.position.distanceTo(targetPosition(activeTarget))<3.3){if(chargeStarted===null)chargeStarted=performance.now();actionTime=(performance.now()-chargeStarted)/1000;$('#charge-ring').style.strokeDashoffset=289*(1-Math.min(1,actionTime/1.35));fill.intensity=25+actionTime*60;if(actionTime>=1.35){interact(activeTarget);releaseAction();}}else{actionTime=0;chargeStarted=null;fill.intensity=25;}
  }
- const ready=activeStage==='flight'||!!(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))<=3.3&&canSee(activeTarget));$('#action').dataset.ready=String(ready);
+ const ready=(activeStage==='pirate'&&game.duelPhase==='parry'&&Math.abs(duelClock()-parryAt)<.62)||activeStage==='flight'||!!(activeTarget&&rig.position.distanceTo(targetPosition(activeTarget))<=3.3&&canSee(activeTarget));$('#action').dataset.ready=String(ready);
  if(assisted){for(const b of document.querySelectorAll('#assist-objects button')){const item=world.interactables.find(i=>i.id===b.dataset.object);const available=!!item&&rig.position.distanceTo(targetPosition(item))<=3.3&&canSee(item);b.dataset.ready=String(available);b.title=available?'Activa aquest objecte':'Camina fins a aquest objecte';}}
  $('#target-label').textContent=activeStage==='flight'?'TRAVESSA ELS ANELLS · ACCIÓ DISPARA':activeTarget?(ready?activeTarget.label:'ACOSTA’T · '+activeTarget.label):'';
- $('#action-label').textContent=activeStage==='flight'?'DISPARA':activeTarget&&!ready?'ACOSTA’T':activeTarget?.kind==='hold'?'MANTÉN':'ACCIÓ';$('#aim').classList.toggle('ready',!!activeTarget);
+ $('#action-label').textContent=game.duelPhase==='parry'?'PARA!':activeStage==='flight'?'DISPARA':activeTarget&&!ready?'ACOSTA’T':activeTarget?.kind==='hold'?'MANTÉN':'ACCIÓ';$('#aim').classList.toggle('ready',!!activeTarget);
  drawMap();$('#music-pulse').style.transform='scaleX('+(score.muted?.3:.35+pulse*.65)+')';$('#music-pulse').style.transformOrigin='left';
  if(routeLine.visible&&time>hintUntil)routeLine.visible=false;
  }

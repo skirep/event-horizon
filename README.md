@@ -51,3 +51,11 @@ Debug-signed APKs for sideloading are available in Actions:
 - APK builds run separately. Quest head tracking, physical controllers, native Android sensors, folding and device frame rate still require hardware validation.
 
 Three.js r160.1 is vendored under MIT (THREE-LICENSE.txt).
+
+## Part II · El castell de les Marees (v3)
+
+Continue from the Part I ending or choose **PART II · CASTELL I PIRATES** on the title screen (a narrative recap grants the key and core). The castle uses CC0 photographic PBR stone/wood maps and HDR environment lighting; it targets a realistic material treatment within a lightweight mobile/WebXR scene, rather than claiming AAA photorealism. Courtyard walls, towers, voussoir arches, battlements, barred windows, banners and fire surround a playable seal puzzle. Rotate Torre to ☀, Port to ☾ and Mar to ≈, recover the tide chart, and board the ship.
+
+The ship has a curved hull, timber deck, guns, wheel, rigging and wind-filled sails. Challenge Captain Salmorra; choose an original witty response, then press **E / Action / Parry** while the timing signal is gold. Three successful exchanges unlock the helm and ending. Wrong answers reveal a counter; failed parries preserve earned exchanges. Keys 1–3 choose replies. On Quest, point at floating reply text and trigger, then trigger again on the gold sword cue. Soundtrack transitions remain bar-aligned; the parry animation follows the paused/resumed AudioContext clock. New score: ~135 seconds of original chamber and pirate music, plus the existing four cues.
+
+All textures/HDR and music ship locally in the Android WebView APK; GitHub Pages and Quest Browser share the same app. The Quest APK opens the WebXR experience in Meta Quest Browser. Desktop/mobile browser QA is automated; actual Android and Quest hardware still needs hands-on validation. See assets/textures/CREDITS.md and assets/audio/CREDITS.md for sources/licensing.
