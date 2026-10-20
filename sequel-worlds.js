@@ -5,7 +5,7 @@ import {GLYPHS,optionsFor} from './sequel.js';
 const loader=new T.TextureLoader(),tex={},pending=[];
 let environment,backdrop,assetPromise;
 export function loadSequelAssets(renderer){
- if(assetPromise)return assetPromise;
+ if(assetPromise)return assetPromise;pending.length=0;
  for(const name of ['stone','wood'])for(const kind of ['color','normal','rough']){
   const key=name+'-'+kind;
   pending.push(loader.loadAsync('./assets/textures/'+key+'.webp').then(t=>{t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());if(kind==='color')t.colorSpace=T.SRGBColorSpace;tex[key]=t;}));
@@ -13,8 +13,8 @@ export function loadSequelAssets(renderer){
  pending.push(new RGBELoader().loadAsync('./assets/textures/coast.hdr').then(t=>{const p=new T.PMREMGenerator(renderer);environment=p.fromEquirectangular(t).texture;t.mapping=T.EquirectangularReflectionMapping;backdrop=t;p.dispose();}));
  assetPromise=Promise.all(pending).then(()=>environment).catch(e=>{assetPromise=null;throw e;});return assetPromise;
 }
-export function sequelEnvironment(){return environment;}
-export function sequelBackdrop(){return backdrop;}
+export function sequelEnvironment(){return environment||null;}
+export function sequelBackdrop(){return backdrop||null;}
 const brass=new T.MeshStandardMaterial({color:'#ad8b48',metalness:.85,roughness:.28});
 const iron=new T.MeshStandardMaterial({color:'#282d2e',metalness:.8,roughness:.52});
 const mortar=new T.MeshStandardMaterial({color:'#837c67',roughness:1});
@@ -22,7 +22,7 @@ const cloth=new T.MeshStandardMaterial({color:'#dbcfad',roughness:1,side:T.Doubl
 function pbr(name,color='#ffffff'){return new T.MeshStandardMaterial({color,map:tex[name+'-color']||null,normalMap:tex[name+'-normal']||null,roughnessMap:tex[name+'-rough']||null,normalScale:new T.Vector2(.9,.9),roughness:.92,envMapIntensity:.7});}
 function mesh(p,g,m,x=0,y=0,z=0){const o=new T.Mesh(g,m);o.position.set(x,y,z);p.add(o);return o;}
 function block(p,m,x,y,z,a,b,c){const g=new T.BoxGeometry(a,b,c),uv=g.attributes.uv,pos=g.attributes.position,n=g.attributes.normal;for(let i=0;i<uv.count;i++){uv.setXY(i,(Math.abs(n.getX(i))>.5?pos.getZ(i):pos.getX(i))/3,(Math.abs(n.getY(i))>.5?pos.getZ(i):pos.getY(i))/3);}return mesh(p,g,m,x,y,z);}
-function cyl(p,m,x,y,z,r,h,n=24){return mesh(p,new T.CylinderGeometry(r,r,h,n),m,x,y,z);}
+function cyl(p,m,x,y,z,r,h,n=24){const g=new T.CylinderGeometry(r,r,h,n),u=g.attributes.uv;for(let i=0;i<u.count;i++)u.setXY(i,u.getX(i)*Math.PI*2*r/3,u.getY(i)*h/3);return mesh(p,g,m,x,y,z);}
 function rope(p,a,b,r=.025,m=mortar){const v=new T.Vector3(...b).sub(new T.Vector3(...a));const o=mesh(p,new T.CylinderGeometry(r,r,v.length(),6),m,...new T.Vector3(...a).addScaledVector(v,.5).toArray());o.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),v.normalize());return o;}
 function item(w,id,x,z,text,build){const g=new T.Group();g.userData.dynamic=true;g.position.set(x,0,z);w.group.add(g);build?.(g);const i={id,node:g,position:g.position,hit:g,kind:'tap',label:text};w.interactables.push(i);return i;}
 function world(){return {group:new T.Group(),interactables:[],colliders:[],animated:[],spawn:new T.Vector3(0,0,9),yaw:0,fog:.003,bounds:15};}
@@ -57,12 +57,12 @@ export function castle(game){
    const glyph=sign(p,GLYPHS[game.dials[i]],0,1.65,.2,1.2);w.dialSymbols.push(glyph);sign(p,['TORRE','PORT','MAR'][i],0,2.65,0,2.5);
   });
  }
- item(w,'chart',0,-11,'OBRE LA CARTA DE MAREES',p=>{block(p,wood,0,.7,0,2,1.4,1.2);const page=block(p,new T.MeshStandardMaterial({color:'#d6c492',roughness:.9}),0,1.45,.1,1.6,.08,1);page.rotation.x=.12;for(let r of [.2,.4,.6]){const o=mesh(p,new T.TorusGeometry(r,.008,4,40),iron,0,1.51,.1);o.rotation.x=-Math.PI/2;}sign(p,'LA CARTA DE MAREES',0,2.45,0,4);});
- item(w,'embark',10,5,'EMBARCA CAP AL MAR DE LA MEMÒRIA',p=>{arch(p,stone,0,0,0,2.3,4.5,1.6);block(p,wood,0,1.8,-.4,2.2,3.6,.25);const lamp=glow(p,'#9fe9dc',0,2,.3,4);w.animated.push((t,b)=>lamp.material.opacity=game.chart?.35+b*.15:.02);sign(p,'AL MOLL →',0,5.1,0,3);});
+ item(w,'chart',0,-11,'OBRE LA CARTA DE MAREES',p=>{block(p,wood,0,.7,0,2,1.4,1.2);const page=block(p,new T.MeshStandardMaterial({color:'#d6c492',roughness:.9}),0,1.45,.1,1.6,.08,1);page.rotation.x=.12;for(let r of [.2,.4,.6]){const o=mesh(p,new T.TorusGeometry(r,.008,4,40),iron,0,1.51,.1);o.rotation.x=-Math.PI/2;}w.animated.push(()=>page.visible=!game.chart);sign(p,'LA CARTA DE MAREES',0,2.45,0,4);});
+ item(w,'embark',10,5,'EMBARCA CAP AL MAR DE LA MEMÒRIA',p=>{arch(p,stone,0,0,0,2.3,4.5,1.6);const hinge=new T.Group();hinge.position.set(-1.1,0,-.4);p.add(hinge);block(hinge,wood,1.1,1.8,0,2.2,3.6,.25);w.animated.push((t,b,dt)=>hinge.rotation.y=T.MathUtils.damp(hinge.rotation.y,game.chart?-Math.PI*.65:0,4,dt));const lamp=glow(p,'#9fe9dc',0,2,.3,4);w.animated.push((t,b)=>lamp.material.opacity=game.chart?.35+b*.15:.02);sign(p,'AL MOLL →',0,5.1,0,3);});
  for(const x of [-8,8])for(const z of [-12,4])brazier(w,x,z);
  // Wind-carried motes at physical courtyard scale.
  const ps=[];for(let i=0;i<100;i++)ps.push(Math.sin(i*47)*14,1+(i%17)*.4,Math.cos(i*23)*14);const pg=new T.BufferGeometry();pg.setAttribute('position',new T.Float32BufferAttribute(ps,3));const dust=new T.Points(pg,new T.PointsMaterial({color:'#e9d7ac',size:.025,transparent:true,opacity:.45,depthWrite:false}));dust.userData.dynamic=true;g.add(dust);w.animated.push(t=>dust.position.x=Math.sin(t*.15)*.4);
- w.updateDials=()=>{w.dialSymbols.forEach((s,i)=>{const n=label(GLYPHS[game.dials[i]],'#f1dbb2',1.2);s.material.map.dispose();s.material.dispose();s.material=n.material;});};
+ w.updateDials=()=>{w.dialSymbols.forEach((s,i)=>{const n=label(GLYPHS[game.dials[i]],game.dials[i]===[1,3,2][i]?'#a8ecd5':'#f1dbb2',1.2);s.material.map.dispose();s.material.dispose();s.material=n.material;});};
  batchMasonry(w);return w;
 }
 function sword(p,x=0,y=0,z=0){const g=new T.Group();g.position.set(x,y,z);p.add(g);const blade=block(g,new T.MeshStandardMaterial({color:'#cbd1d0',metalness:1,roughness:.19}),0,.8,0,.075,1.45,.025);blade.rotation.z=-.03;block(g,brass,0,.05,0,.5,.07,.08);cyl(g,iron,0,-.12,0,.05,.3,12);const guard=mesh(g,new T.TorusGeometry(.17,.022,8,24,Math.PI),brass,.1,-.03,0);guard.rotation.z=-Math.PI/2;return g;}
@@ -109,7 +109,7 @@ export function pirate(game){
  for(let i=0;i<3;i++){
   const choice=item(w,'reply'+i,(i-1)*2.1,-1,'RÈPLICA '+(i+1),p=>{const s=sign(p,String(i+1),0,1.25,0,.6);w.replySigns.push(s);});choice.node.visible=false;
  }
- item(w,'helm',0,10,'PREN EL TIMÓ · MARCA EL RUMB',p=>{block(p,dark,0,.7,0,.3,1.4,.4);const wheel=mesh(p,new T.TorusGeometry(.7,.06,8,48),wood,0,1.5,0);for(let i=0;i<8;i++){const a=i*Math.PI/4;rope(p,[0,1.5,0],[Math.cos(a)*.95,1.5+Math.sin(a)*.95,0],.035,wood);}cyl(p,brass,0,1.5,0,.12,.15,16).rotation.x=Math.PI/2;sign(p,'EL RUMB ÉS TEU',0,2.8,0,3);});
+ item(w,'helm',0,10,'PREN EL TIMÓ · MARCA EL RUMB',p=>{block(p,dark,0,.7,0,.3,1.4,.4);const wheel=mesh(p,new T.TorusGeometry(.7,.06,8,48),wood,0,1.5,0);for(let i=0;i<8;i++){const a=i*Math.PI/4;rope(p,[0,1.5,0],[Math.cos(a)*.95,1.5+Math.sin(a)*.95,0],.035,wood);}cyl(p,brass,0,1.5,0,.12,.15,16).rotation.x=Math.PI/2;const h=glow(p,'#f0cf81',0,1.6,0,3);w.animated.push((t,b)=>h.material.opacity=game.duelWins>=3?.25+b*.2:0);sign(p,'EL RUMB ÉS TEU',0,2.8,0,3);});
  w.playerSword=sword(g,.55,1.05,-.5);w.playerSword.userData.dynamic=true;w.playerSword.visible=false;
  w.updateReplies=()=>{for(let i=0;i<3;i++){const obj=w.interactables.find(o=>o.id==='reply'+i);obj.node.visible=game.duelPhase==='reply';const text=optionsFor(game.duelRound)[i];const n=label((i+1)+'. '+text,'#f1dbb2',7);w.replySigns[i].material.map.dispose();w.replySigns[i].material.dispose();w.replySigns[i].material=n.material;w.replySigns[i].scale.copy(n.scale);obj.node.position.set(0,.35-i*.42,-1);}};
  batchMasonry(w);return w;
