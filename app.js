@@ -23,7 +23,7 @@ const routeLine=new T.Line(new T.BufferGeometry(),new T.LineBasicMaterial({color
 const bursts=[],beams=[],raycaster=new T.Raycaster(),pointer=new T.Vector2(),tmp=new T.Vector3();
 const cache=new Map();let world,activeStage='village',playing=false,paused=false,busy=false,finish=false,time=0,previous=0,yaw=0,pitch=0,targetYaw=0,targetPitch=0,gyro=false;
 let movement={x:0,y:0},keys=new Set(),autoPath=[],actionHeld=false,actionTime=0,chargeStarted=null,activeTarget=null,lastShot=0,flightZ=0,snapTime=0,hintUntil=0,selectedController=null;
-let assisted=false;let slowFrames=0,qualityLevel=0;let screenTimer,toastTimer,reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches,checkpointData=null;
+let navigationStall=0;let assisted=false;let slowFrames=0,qualityLevel=0;let screenTimer,toastTimer,reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches,checkpointData=null;
 try{const raw=localStorage.getItem('event-horizon-journey-v2');if(raw){const j=new Journey();const data=JSON.parse(raw);if(j.restore(data)&&!j.sequelComplete){checkpointData=data;$('#continue').hidden=false;}}}catch{}
 function save(){try{localStorage.setItem('event-horizon-journey-v2',JSON.stringify(game.save()));}catch{}}
 function toast(s){$('#toast').textContent=s;$('#toast').classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('on'),3300);}
@@ -129,6 +129,7 @@ function pointItem(x,y){
  return closest;
 }
 function walkTo(item){
+ navigationStall=0;
  const p=targetPosition(item);if(activeStage==='maze'){const start=toCell(rig.position.x,rig.position.z),end=toCell(p.x,p.z);const path=mazePath(game.maze,start,end);if(!path.length)return;autoPath=path.slice(1).map(c=>toWorld(...c));if(!autoPath.length)autoPath=[p];}else{ // Route around the clock; never move straight through colliders.
  const dx=p.x-rig.position.x,dz=p.z-rig.position.z;let blocked=false;for(let i=1;i<=20;i++)if(!freeAt(rig.position.x+dx*i/20,rig.position.z+dz*i/20))blocked=true;
  if(blocked){const side=rig.position.x<0?-3:3;autoPath=[new T.Vector3(side,0,rig.position.z),new T.Vector3(side,0,p.z),p];}else autoPath=[p];
@@ -266,7 +267,7 @@ renderer.setAnimationLoop(ms=>{
  let mx=movement.x+(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0),my=movement.y-(keys.has('KeyW')||keys.has('ArrowUp')?1:0)+(keys.has('KeyS')||keys.has('ArrowDown')?1:0);
  if(game.duelPhase!=='idle'&&activeStage==='pirate'){mx=my=0;autoPath=[];}
  if(mx||my){autoPath=[];const forward=new T.Vector3();camera.getWorldDirection(forward);forward.y=0;forward.normalize();const right=new T.Vector3(-forward.z,0,forward.x);const d=forward.multiplyScalar(-my).addScaledVector(right,mx);if(d.length()>1)d.normalize();moveBy(d.x*dt*4.2,d.z*dt*4.2);}
- else if(autoPath.length){const p=autoPath[0],d=p.clone().sub(rig.position);d.y=0;const dist=d.length();if(dist<(autoPath.length===1?1.9:.13))autoPath.shift();else{d.normalize();const before=rig.position.clone();moveBy(d.x*Math.min(dist,dt*3.8),d.z*Math.min(dist,dt*3.8));if(before.distanceTo(rig.position)<.001)autoPath=[];if(!gyro&&!renderer.xr.isPresenting)targetYaw=Math.atan2(-d.x,-d.z);}}
+ else if(autoPath.length){const p=autoPath[0],d=p.clone().sub(rig.position);d.y=0;const dist=d.length();if(dist<(autoPath.length===1?1.9:.13))autoPath.shift();else{d.normalize();const before=rig.position.clone();moveBy(d.x*Math.min(dist,dt*3.8),d.z*Math.min(dist,dt*3.8));if(dt>.001&&before.distanceTo(rig.position)<.001)navigationStall+=dt;else navigationStall=0;if(navigationStall>.6){autoPath=[];navigationStall=0;}if(!gyro&&!renderer.xr.isPresenting)targetYaw=Math.atan2(-d.x,-d.z);}}
  scene.updateMatrixWorld(true);
  if(selectedController&&renderer.xr.isPresenting){const p=new T.Vector3(),q=new T.Quaternion();selectedController.getWorldPosition(p);selectedController.getWorldQuaternion(q);activeTarget=findTarget(new T.Ray(p,new T.Vector3(0,0,-1).applyQuaternion(q)));}else activeTarget=findTarget();
  if(actionHeld&&activeTarget?.kind==='hold'&&rig.position.distanceTo(targetPosition(activeTarget))<3.3){if(chargeStarted===null)chargeStarted=performance.now();actionTime=(performance.now()-chargeStarted)/1000;$('#charge-ring').style.strokeDashoffset=289*(1-Math.min(1,actionTime/1.35));fill.intensity=25+actionTime*60;if(actionTime>=1.35){interact(activeTarget);releaseAction();}}else{actionTime=0;chargeStarted=null;fill.intensity=25;}
